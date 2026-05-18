@@ -2,6 +2,7 @@ import { getAddress, stringToHex, type Address, type Hex } from 'viem'
 import * as factory from '../ops/factory.js'
 import * as uups from '../ops/uups-upgrade.js'
 import * as v2 from '../ops/v2-admin.js'
+import * as versionedProxy from '../ops/versioned-proxy.js'
 import type { AdminOp } from '../types.js'
 
 /**
@@ -21,7 +22,7 @@ export type OpFlag = {
 
 export type OpRegistration = {
   name: string
-  category: 'v2-admin' | 'factory' | 'uups'
+  category: 'v2-admin' | 'factory' | 'uups' | 'versioned-proxy'
   description: string
   flags: OpFlag[]
   build: (args: Record<string, unknown>) => AdminOp
@@ -131,6 +132,21 @@ export const OP_REGISTRY: OpRegistration[] = [
       { name: 'factory', type: 'address', description: 'Factory address', required: true },
     ],
     build: ({ factory: f }) => factory.acceptOwnership(f as Address),
+  },
+
+  // ----- versioned-proxy (Role 1) -----
+  {
+    name: 'set-proxy-admin',
+    category: 'versioned-proxy',
+    description:
+      'Add or remove an address from the versioned proxy Role 1 (proxyAdmins) whitelist',
+    flags: [
+      { name: 'proxy', type: 'address', description: 'Versioned proxy address', required: true },
+      { name: 'admin', type: 'address', description: 'Admin address to toggle', required: true },
+      { name: 'status', type: 'bool', description: 'true = grant, false = revoke', required: true },
+    ],
+    build: ({ proxy, admin, status }) =>
+      versionedProxy.setProxyAdmin(proxy as Address, admin as Address, status as boolean),
   },
 
   // ----- uups -----

@@ -26,13 +26,16 @@ describe('getSigner factory', () => {
   }, 5000)
 
   it('rejects with an actionable error when trezor has no bridge + no deps', async () => {
-    // Same dual-path as ledger:
+    // Same dual-path as ledger, with one extra branch:
     //   - deps missing -> "trezor signer requires optional dep"
     //   - deps installed but no Trezor Bridge running -> init timeout
+    //   - deps installed AND init succeeded but no device present at
+    //     getAddress time -> "trezor getAddress failed. Transport is missing"
+    // All four are user-actionable and resolve quickly.
     await expect(
       getSigner('trezor', { trezor: { initTimeoutMs: 1500 } }),
     ).rejects.toThrow(
-      /trezor signer requires optional dep|trezor init failed|trezor connect init timed out/i,
+      /trezor signer requires optional dep|trezor init failed|trezor connect init timed out|trezor getAddress failed/i,
     )
   }, 5000)
 

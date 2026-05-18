@@ -99,8 +99,16 @@ library Errors {
     /// @notice Delegatecall into the versioned implementation failed without returndata
     error VersionedFeeProxy_DelegateCallFailed();
 
-    /// @notice `acceptProxyAdmin` called by an address that is not the pending admin
-    error VersionedFeeProxy_NotPendingProxyAdmin();
+    /// @notice `setProxyAdmin` called with status matching the current state
+    ///         (granting an already-admin or revoking a non-admin). Idempotent
+    ///         calls revert so the on-chain log of grant/revoke events stays
+    ///         truthful (every emit corresponds to a real state change).
+    error VersionedFeeProxy_ProxyAdminAlreadySet();
+
+    /// @notice `setProxyAdmin(admin, false)` would leave the proxy with zero
+    ///         admins, permanently locking the role. The last remaining
+    ///         proxyAdmin cannot self-revoke.
+    error VersionedFeeProxy_LastProxyAdmin();
 
     /// @notice The new impl's `STORAGE_COMPAT_ID` differs from the proxy's
     ///         reference (default version's impl). Registering an incompatible

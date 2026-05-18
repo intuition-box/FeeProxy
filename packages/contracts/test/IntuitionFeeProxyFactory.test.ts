@@ -162,7 +162,11 @@ describe("IntuitionFeeProxyFactory (UUPS)", function () {
         "IntuitionVersionedFeeProxy",
         proxyAddr,
       )) as unknown as IntuitionVersionedFeeProxy;
-      expect(await versioned.proxyAdmin()).to.equal(admin1.address); // = initialAdmins[0]
+      // Factory now passes the full initialAdmins array to Role 1 — every
+      // initial admin is also a proxyAdmin. proxyAdminCount mirrors Role 2.
+      expect(await versioned.isProxyAdmin(admin1.address)).to.equal(true);
+      expect(await versioned.isProxyAdmin(admin2.address)).to.equal(true);
+      expect(await versioned.proxyAdminCount()).to.equal(2n);
       expect(await versioned.getDefaultVersion()).to.equal(V2);
       expect(await versioned.getVersions()).to.deep.equal([V2]);
       expect(await versioned.getImplementation(V2)).to.equal(await implV2.getAddress());

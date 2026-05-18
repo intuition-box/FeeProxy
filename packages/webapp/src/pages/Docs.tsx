@@ -504,8 +504,8 @@ function Architecture() {
           }
         />
         <Actor
-          term="Proxy admin (single address — use a Safe)"
-          desc="Single-slot role (one address at a time). For production, put a Gnosis Safe multisig here — the Safe handles N signers / threshold / signer rotation internally, so you get 'multi-human proxyAdmin' without the contract knowing anything about it. Owns the version registry: registerVersion / setDefaultVersion / 2-step grant via transferProxyAdmin → pending target calls acceptProxyAdmin. Intentionally disjoint from fee admins — compromise of one does not cascade to the other."
+          term="Proxy admins (whitelisted)"
+          desc="Multiple addresses. Owns the version registry: registerVersion / setDefaultVersion / setName. Rotation is instant via setProxyAdmin(addr, true/false) — same model as fee admins, with a last-admin guard. Put a Safe in the whitelist for production; the Safe handles N signers / threshold / signer rotation internally. Intentionally disjoint from fee admins — compromise of one does not cascade to the other."
         />
         <Actor
           term="Implementation"
@@ -865,7 +865,7 @@ function Primitives() {
         />
       </dl>
 
-      <H3>Proxy admin (single address / Safe)</H3>
+      <H3>Proxy admins (whitelisted)</H3>
       <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
         <Primitive
           term="registerVersion(label, impl)"
@@ -876,16 +876,16 @@ function Primitives() {
           desc="Change which registered version handles fallback calls."
         />
         <Primitive
-          term="transferProxyAdmin(newAdmin)"
-          desc="Step 1 of a 2-step rotation. Sets pendingProxyAdmin but does NOT transfer powers. Calling again overwrites the pending candidate. Passing address(0) reverts."
+          term="setProxyAdmin(admin, status)"
+          desc="Add or remove an address from the proxyAdmins whitelist. Instant — no 2-step ceremony. Reverts on idempotent calls (status already matches) and on the last-admin revoke."
         />
         <Primitive
-          term="acceptProxyAdmin()"
-          desc="Step 2 of the rotation. Must be called by the address currently set as pendingProxyAdmin — it promotes the caller to proxyAdmin. Prevents fat-fingered transfers to wrong / lost addresses."
+          term="isProxyAdmin(addr) view"
+          desc="Whether an address is currently in the proxyAdmins whitelist. Used by the webapp to gate the Role 1 surface."
         />
         <Primitive
-          term="pendingProxyAdmin() view"
-          desc="Returns the candidate awaiting acceptance, or address(0) if no transfer is pending."
+          term="proxyAdminCount() view"
+          desc="Number of addresses currently in the proxyAdmins whitelist. Reaches 0 only transiently inside a grant tx during initialization."
         />
         <Primitive
           term="setName(newName) / getName()"
@@ -965,20 +965,22 @@ function AdminRotation() {
     <div className="space-y-5">
       <PageHeader kicker="Security" title="Admin rotation" />
       <P>
-        Both admin roles are rotatable, but the mechanics differ on
-        purpose — the slower path covers the higher-impact role.
+        Both admin roles are whitelists with the same shape — N addresses,
+        instant grant/revoke, last-admin guard. The 2-step ceremony Role
+        1 used to have was retired in favour of the multi-admin model
+        (any current admin can grant a replacement, then the old admin
+        revokes itself).
       </P>
       <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
         <Actor
-          term="Role 1 — proxyAdmin (2-step)"
+          term="Role 1 — proxyAdmins (instant, N addresses)"
           desc={
             <>
-              Current admin calls <Code>transferProxyAdmin(newAdmin)</Code>,
-              which only sets <Code>pendingProxyAdmin</Code> — no powers
-              move. The target must then sign{' '}
-              <Code>acceptProxyAdmin()</Code> from their own wallet to
-              finalise. Until then the outgoing admin keeps full powers
-              and can overwrite the pending candidate.
+              Whitelist of upgrade-authority addresses.{' '}
+              <Code>setProxyAdmin(addr, true/false)</Code> grants or
+              revokes in a single tx. Any current proxyAdmin can mutate
+              the list. The contract reverts if status already matches
+              and refuses to revoke the last remaining admin.
             </>
           }
         />
@@ -986,10 +988,10 @@ function AdminRotation() {
           term="Role 2 — fee admins (instant, N addresses)"
           desc={
             <>
-              Whitelist-style. <Code>setWhitelistedAdmin(addr, true/false)</Code>{' '}
-              adds or removes in a single tx. Any fee admin can grant or
-              revoke any other — except the last one cannot self-revoke.
-              Multiple fee admins can coexist; all share the same powers.
+              Same shape as Role 1, different surface.{' '}
+              <Code>setWhitelistedAdmin(addr, true/false)</Code> mutates
+              the fee-admin whitelist. Any fee admin can grant or revoke
+              any other — except the last one cannot self-revoke.
             </>
           }
         />
@@ -997,15 +999,13 @@ function AdminRotation() {
           term="Convenience — Grant both roles"
           desc={
             <>
-              When a single wallet holds both roles and wants to hand the
-              whole proxy off, the webapp exposes a combined flow that
-              fires <Code>setWhitelistedAdmin(new, true)</Code> then{' '}
-              <Code>transferProxyAdmin(new)</Code> back-to-back (2 sigs,
-              1 click). The target still has to{' '}
-              <Code>acceptProxyAdmin()</Code> from their side; acceptance
-              is auto-detected via the on-chain state poll. The outgoing
-              admin optionally revokes themselves as fee admin from the
-              new owner&apos;s wallet afterwards.
+              When a single wallet holds both roles and wants to hand
+              the whole proxy off, the webapp exposes a combined flow
+              that fires <Code>setProxyAdmin(new, true)</Code> then{' '}
+              <Code>setWhitelistedAdmin(new, true)</Code> back-to-back
+              (2 sigs, 1 click). Both grants are instant. The outgoing
+              admin optionally revokes itself from each whitelist
+              afterwards.
             </>
           }
         />

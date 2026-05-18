@@ -7,8 +7,6 @@ import { UpgradeAuthorityPanel } from './UpgradeAuthorityPanel'
 
 interface Props {
   proxy: Address
-  proxyAdmin: Address | undefined
-  pendingProxyAdmin: Address | undefined
   account: Address | undefined
   isFeeAdmin: boolean
   isVersionsFetching: boolean
@@ -17,8 +15,6 @@ interface Props {
 
 export function AdminsTab({
   proxy,
-  proxyAdmin,
-  pendingProxyAdmin,
   account,
   isFeeAdmin,
   isVersionsFetching,
@@ -33,8 +29,6 @@ export function AdminsTab({
       </p>
       <UpgradeAuthorityPanel
         proxy={proxy}
-        proxyAdmin={proxyAdmin}
-        pendingProxyAdmin={pendingProxyAdmin}
         account={account}
         isConnectedFeeAdmin={isFeeAdmin}
         onTransferred={onWriteDone}

@@ -212,10 +212,13 @@ contract IntuitionFeeProxyFactory is
             (ethMultiVault, depositFixedFee, depositPercentageFee, initialAdmins)
         );
 
-        address proxyAdmin_ = initialAdmins.length > 0 ? initialAdmins[0] : address(0);
-
+        // Pass the full initialAdmins array to the proxy's Role 1 whitelist.
+        // Both Role 1 (proxyAdmins, upgrade authority) and Role 2
+        // (whitelistedAdmins, fees) start from the same set — admins can
+        // diverge the two later via setProxyAdmin / setWhitelistedAdmin
+        // if their team / safe layout needs it.
         proxy = address(
-            new IntuitionVersionedFeeProxy(proxyAdmin_, version, impl, initData, name)
+            new IntuitionVersionedFeeProxy(initialAdmins, version, impl, initData, name)
         );
 
         proxiesByDeployer[msg.sender].push(proxy);

@@ -4,22 +4,22 @@ import type { AdminOp } from '../types.js'
 /**
  * Role 1 (proxyAdmin) operations on `IntuitionVersionedFeeProxy`.
  *
- * `transferProxyAdmin` is 2-step: it sets `pendingProxyAdmin`, the
- * target then has to call `acceptProxyAdmin` from their own wallet
- * (or via their Safe propose flow if they're a Safe) to finalize.
+ * Role 1 is a whitelist (post 2-step retirement) — `setProxyAdmin`
+ * grants or revokes instantly. The contract enforces idempotent
+ * reject + last-admin guard.
+ *
+ * `registerVersion` and `setDefaultVersion` are the version-registry
+ * mutators — they live on the same role-1 surface so the same admins
+ * that rotate the whitelist also manage the implementation directory.
  */
 const VERSIONED_PROXY_ABI = [
   {
     type: 'function',
-    name: 'transferProxyAdmin',
-    inputs: [{ name: 'newAdmin', type: 'address' }],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    name: 'acceptProxyAdmin',
-    inputs: [],
+    name: 'setProxyAdmin',
+    inputs: [
+      { name: 'admin', type: 'address' },
+      { name: 'status', type: 'bool' },
+    ],
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -42,29 +42,20 @@ const VERSIONED_PROXY_ABI = [
   },
 ] as const
 
-export function transferProxyAdmin(proxy: Address, newAdmin: Address): AdminOp {
+export function setProxyAdmin(
+  proxy: Address,
+  admin: Address,
+  status: boolean,
+): AdminOp {
   return {
     to: proxy,
     value: 0n,
     data: encodeFunctionData({
       abi: VERSIONED_PROXY_ABI,
-      functionName: 'transferProxyAdmin',
-      args: [newAdmin],
+      functionName: 'setProxyAdmin',
+      args: [admin, status],
     }),
-    description: `transferProxyAdmin(-> ${newAdmin}) on proxy ${proxy}`,
-  }
-}
-
-export function acceptProxyAdmin(proxy: Address): AdminOp {
-  return {
-    to: proxy,
-    value: 0n,
-    data: encodeFunctionData({
-      abi: VERSIONED_PROXY_ABI,
-      functionName: 'acceptProxyAdmin',
-      args: [],
-    }),
-    description: `acceptProxyAdmin() on proxy ${proxy}`,
+    description: `setProxyAdmin(${admin}, ${status}) on ${proxy}`,
   }
 }
 

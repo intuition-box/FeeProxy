@@ -59,8 +59,6 @@ function ProxyDetail({ proxy }: { proxy: Address }) {
   const {
     versions,
     defaultVersion,
-    proxyAdmin,
-    pendingProxyAdmin,
     refetch: refetchVersions,
     isFetching: isVersionsFetching,
   } = useProxyVersions(proxy)
@@ -78,8 +76,8 @@ function ProxyDetail({ proxy }: { proxy: Address }) {
   const family: ProxyFamily = channel === 'sponsored' ? 'sponsored' : 'standard'
 
   const { isProxyAdmin, isViewer } = useProxyRoles({
+    proxy,
     account,
-    proxyAdmin,
     isFeeAdmin,
   })
 
@@ -173,8 +171,6 @@ function ProxyDetail({ proxy }: { proxy: Address }) {
       {tab === 'admins' && (
         <AdminsTab
           proxy={proxy}
-          proxyAdmin={proxyAdmin}
-          pendingProxyAdmin={pendingProxyAdmin}
           account={account}
           isFeeAdmin={isFeeAdmin}
           isVersionsFetching={isVersionsFetching}

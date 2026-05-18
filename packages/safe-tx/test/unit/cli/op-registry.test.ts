@@ -8,13 +8,15 @@ import {
 } from '../../../src/cli/op-registry.js'
 
 describe('OP_REGISTRY', () => {
-  it('contains 10 ops total (5 v2-admin + 4 factory + 1 uups)', () => {
-    expect(OP_REGISTRY).toHaveLength(10)
+  it('contains 11 ops total (5 v2-admin + 4 factory + 1 versioned-proxy + 1 uups)', () => {
+    expect(OP_REGISTRY).toHaveLength(11)
     const v2 = OP_REGISTRY.filter((o) => o.category === 'v2-admin')
     const fac = OP_REGISTRY.filter((o) => o.category === 'factory')
+    const vp = OP_REGISTRY.filter((o) => o.category === 'versioned-proxy')
     const up = OP_REGISTRY.filter((o) => o.category === 'uups')
     expect(v2).toHaveLength(5)
     expect(fac).toHaveLength(4)
+    expect(vp).toHaveLength(1)
     expect(up).toHaveLength(1)
   })
 

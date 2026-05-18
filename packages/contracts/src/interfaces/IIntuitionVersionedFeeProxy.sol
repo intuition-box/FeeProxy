@@ -13,10 +13,11 @@ interface IIntuitionVersionedFeeProxy {
     event VersionRegistered(bytes32 indexed version, address indexed implementation);
     event VersionRemoved(bytes32 indexed version);
     event DefaultVersionChanged(bytes32 indexed oldVersion, bytes32 indexed newVersion);
-    event ProxyAdminTransferred(address indexed oldAdmin, address indexed newAdmin);
 
-    /// @notice Emitted when a new proxy-admin transfer is initiated (pending the new admin's acceptance).
-    event ProxyAdminTransferStarted(address indexed currentAdmin, address indexed pendingAdmin);
+    /// @notice Emitted when an address gains the proxyAdmin role.
+    event ProxyAdminGranted(address indexed admin);
+    /// @notice Emitted when an address loses the proxyAdmin role.
+    event ProxyAdminRevoked(address indexed admin);
 
     /// @notice Emitted when the proxy's human-readable name is set or changed.
     event NameChanged(bytes32 indexed oldName, bytes32 indexed newName);
@@ -27,17 +28,20 @@ interface IIntuitionVersionedFeeProxy {
     function removeVersion(bytes32 version) external;
     function setDefaultVersion(bytes32 version) external;
 
-    /// @notice Initiate a proxy-admin transfer. The new admin takes over only
-    ///         after they call `acceptProxyAdmin`. Passing `address(0)` reverts.
-    ///         Calling again before acceptance overwrites the pending admin.
-    function transferProxyAdmin(address newAdmin) external;
-
-    /// @notice Finalize a pending proxy-admin transfer. Only callable by the
-    ///         address set as `pendingProxyAdmin` via `transferProxyAdmin`.
-    function acceptProxyAdmin() external;
+    /// @notice Grant or revoke the proxyAdmin role for an address.
+    ///         `status = true` adds; `status = false` removes. Idempotent
+    ///         calls (status already matches) revert with
+    ///         `ProxyAdminAlreadySet`. The last remaining admin cannot
+    ///         self-revoke (revert `LastProxyAdmin`).
+    /// @dev    Any current proxyAdmin can call this. For production, the
+    ///         recommended setup is to keep at least one Gnosis Safe
+    ///         multisig in the whitelist — the Safe's internal quorum
+    ///         provides the safety net the previous 2-step transfer flow
+    ///         used to enforce.
+    function setProxyAdmin(address admin, bool status) external;
 
     /// @notice Set or rename the proxy's human-readable label. Pass bytes32(0) to clear.
-    /// @dev    ⚠️ **The name is NOT a trust anchor.** The proxy-admin can
+    /// @dev    ⚠️ **The name is NOT a trust anchor.** Any proxy-admin can
     ///         rename the proxy at any time — including to mimic a known
     ///         brand. Frontends MUST NOT use `name` to derive an "official"
     ///         / "verified" badge. Use the Factory's `isProxyFromFactory`
@@ -50,8 +54,13 @@ interface IIntuitionVersionedFeeProxy {
     function getImplementation(bytes32 version) external view returns (address);
     function getDefaultVersion() external view returns (bytes32);
     function getVersions() external view returns (bytes32[] memory);
-    function proxyAdmin() external view returns (address);
-    function pendingProxyAdmin() external view returns (address);
+
+    /// @notice Returns true if `candidate` is currently a proxyAdmin.
+    function isProxyAdmin(address candidate) external view returns (bool);
+
+    /// @notice Returns the number of addresses currently holding the proxyAdmin role.
+    function proxyAdminCount() external view returns (uint256);
+
     /// @notice Returns the proxy's current human-readable label.
     /// @dev    ⚠️ See the warning on `setName` — a name is admin-controlled
     ///         metadata, never a source of trust.

@@ -1,9 +1,12 @@
+import { useReadContract } from 'wagmi'
 import type { Address } from 'viem'
+
+import { IntuitionVersionedFeeProxyABI } from '@intuition-fee-proxy/sdk'
 
 export interface ProxyRoles {
   /** True when the connected wallet is a whitelisted fee admin (Role 2). */
   isFeeAdmin: boolean
-  /** True when the connected wallet is the on-chain proxyAdmin (Role 1). */
+  /** True when the connected wallet is in the proxyAdmins whitelist (Role 1). */
   isProxyAdmin: boolean
   /** True when the connected wallet holds both roles simultaneously. */
   hasBothRoles: boolean
@@ -12,21 +15,30 @@ export interface ProxyRoles {
 }
 
 /**
- * Derives the four role booleans from `account` + `proxyAdmin` + a precomputed
- * `isFeeAdmin`. Pure — no side effects, no wagmi calls.
+ * Derives the four role booleans from `account` + on-chain
+ * `isProxyAdmin(account)` lookup + a precomputed `isFeeAdmin`.
+ *
+ * Role 1 became a whitelist (post 2-step retirement), so a single
+ * `proxyAdmin` address comparison is no longer enough — we hit the
+ * contract's `isProxyAdmin(addr)` view.
  */
 export function useProxyRoles({
+  proxy,
   account,
-  proxyAdmin,
   isFeeAdmin,
 }: {
+  proxy: Address | undefined
   account: Address | undefined
-  proxyAdmin: Address | undefined
   isFeeAdmin: boolean
 }): ProxyRoles {
-  const isProxyAdmin = Boolean(
-    account && proxyAdmin && account.toLowerCase() === proxyAdmin.toLowerCase(),
-  )
+  const result = useReadContract({
+    abi: IntuitionVersionedFeeProxyABI as any,
+    address: proxy,
+    functionName: 'isProxyAdmin',
+    args: account ? [account] : undefined,
+    query: { enabled: Boolean(proxy && account) },
+  })
+  const isProxyAdmin = Boolean(result.data)
   const hasBothRoles = isProxyAdmin && isFeeAdmin
   const isViewer = !isFeeAdmin && !isProxyAdmin
 
