@@ -52,7 +52,7 @@ describe("IntuitionFeeProxyV2_1 — canonical versioning demo", function () {
 
     const Versioned = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
     const proxyDeployment = (await Versioned.deploy(
-      admin.address,
+      [admin.address],
       V2_LABEL,
       await v2Impl.getAddress(),
       initData,
@@ -270,7 +270,7 @@ describe("IntuitionFeeProxyV2_1Sponsored — sponsored versioning demo", functio
 
     const Versioned = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
     const proxyDeployment = await Versioned.deploy(
-      admin.address,
+      [admin.address],
       V2_SPONSORED_LABEL,
       await v2sImpl.getAddress(),
       initData,

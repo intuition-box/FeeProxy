@@ -35,7 +35,7 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
 
     const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
     const versioned = (await VersionedFactory.deploy(
-      proxyAdmin.address,
+      [proxyAdmin.address, admin2.address, admin3.address],
       V2,
       await implV2.getAddress(),
       initData,
@@ -75,10 +75,13 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
 
   describe("Construction", function () {
     it("registers initial version, sets default and proxy-admin, runs initializer", async function () {
-      const { versioned, proxyAdmin, implV2, proxyAsV2, mv } =
+      const { versioned, proxyAdmin, admin2, admin3, implV2, proxyAsV2, mv } =
         await loadFixture(deployFixture);
 
-      expect(await versioned.proxyAdmin()).to.equal(proxyAdmin.address);
+      expect(await versioned.isProxyAdmin(proxyAdmin.address)).to.equal(true);
+      expect(await versioned.isProxyAdmin(admin2.address)).to.equal(true);
+      expect(await versioned.isProxyAdmin(admin3.address)).to.equal(true);
+      expect(await versioned.proxyAdminCount()).to.equal(3n);
       expect(await versioned.getDefaultVersion()).to.equal(V2);
       expect(await versioned.getVersions()).to.deep.equal([V2]);
       expect(await versioned.getImplementation(V2)).to.equal(await implV2.getAddress());
@@ -89,11 +92,19 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       expect(await proxyAsV2.adminCount()).to.equal(3n);
     });
 
-    it("reverts on zero admin", async function () {
+    it("reverts on empty initial proxyAdmins array", async function () {
       const { implV2 } = await loadFixture(deployFixture);
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       await expect(
-        VersionedFactory.deploy(ethers.ZeroAddress, V2, await implV2.getAddress(), "0x", ethers.ZeroHash),
+        VersionedFactory.deploy([], V2, await implV2.getAddress(), "0x01", ethers.ZeroHash),
+      ).to.be.revertedWithCustomError(VersionedFactory, "IntuitionFeeProxy_NoAdminsProvided");
+    });
+
+    it("reverts on zero address in initial proxyAdmins", async function () {
+      const { implV2 } = await loadFixture(deployFixture);
+      const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
+      await expect(
+        VersionedFactory.deploy([ethers.ZeroAddress], V2, await implV2.getAddress(), "0x01", ethers.ZeroHash),
       ).to.be.revertedWithCustomError(VersionedFactory, "IntuitionFeeProxy_ZeroAddress");
     });
 
@@ -102,10 +113,10 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       await expect(
         VersionedFactory.deploy(
-          proxyAdmin.address,
+          [proxyAdmin.address],
           ethers.ZeroHash,
           await implV2.getAddress(),
-          "0x",
+          "0x01",
           ethers.ZeroHash,
         ),
       ).to.be.revertedWithCustomError(VersionedFactory, "VersionedFeeProxy_InvalidVersion");
@@ -115,7 +126,7 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       const [, , , , , , eoa] = await ethers.getSigners();
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       await expect(
-        VersionedFactory.deploy(eoa.address, V2, eoa.address, "0x", ethers.ZeroHash),
+        VersionedFactory.deploy([eoa.address], V2, eoa.address, "0x01", ethers.ZeroHash),
       ).to.be.revertedWithCustomError(VersionedFactory, "VersionedFeeProxy_InvalidImplementation");
     });
 
@@ -131,7 +142,7 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       ]);
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       await expect(
-        VersionedFactory.deploy(proxyAdmin.address, V2, await impl.getAddress(), badInit, ethers.ZeroHash),
+        VersionedFactory.deploy([proxyAdmin.address], V2, await impl.getAddress(), badInit, ethers.ZeroHash),
       ).to.be.revertedWithCustomError(impl, "IntuitionFeeProxy_FeePercentageTooHigh");
     });
 
@@ -143,7 +154,7 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       await expect(
         VersionedFactory.deploy(
-          proxyAdmin.address,
+          [proxyAdmin.address],
           V2,
           await implV2.getAddress(),
           "0x",
@@ -456,14 +467,13 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
         "registerVersion(bytes32,address)",
         "removeVersion(bytes32)",
         "setDefaultVersion(bytes32)",
-        "transferProxyAdmin(address)",
-        "acceptProxyAdmin()",
+        "setProxyAdmin(address,bool)",
         "setName(bytes32)",
         "getImplementation(bytes32)",
         "getDefaultVersion()",
         "getVersions()",
-        "proxyAdmin()",
-        "pendingProxyAdmin()",
+        "isProxyAdmin(address)",
+        "proxyAdminCount()",
         "getName()",
         "executeAtVersion(bytes32,bytes)",
       ];
@@ -482,86 +492,95 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
     });
   });
 
-  // ============ transferProxyAdmin ============
+  // ============ setProxyAdmin ============
 
-  describe("transferProxyAdmin", function () {
-    it("2-step transfer: pending is set, accept finalises, old admin loses powers", async function () {
+  describe("setProxyAdmin", function () {
+    it("grant: adds an address to the whitelist + increments count + emits event", async function () {
       const { versioned, proxyAdmin, newAdmin } = await loadFixture(deployFixture);
       const v3Addr = await deployV3Impl();
 
-      // Step 1 — current admin initiates transfer (pending only)
-      await expect(versioned.connect(proxyAdmin).transferProxyAdmin(newAdmin.address))
-        .to.emit(versioned, "ProxyAdminTransferStarted")
-        .withArgs(proxyAdmin.address, newAdmin.address);
-      expect(await versioned.proxyAdmin()).to.equal(proxyAdmin.address);
-      expect(await versioned.pendingProxyAdmin()).to.equal(newAdmin.address);
+      expect(await versioned.isProxyAdmin(newAdmin.address)).to.equal(false);
+      const countBefore = await versioned.proxyAdminCount();
 
-      // Before acceptance: old admin still has powers
-      await expect(versioned.connect(proxyAdmin).registerVersion(V3, v3Addr))
+      await expect(versioned.connect(proxyAdmin).setProxyAdmin(newAdmin.address, true))
+        .to.emit(versioned, "ProxyAdminGranted")
+        .withArgs(newAdmin.address);
+
+      expect(await versioned.isProxyAdmin(newAdmin.address)).to.equal(true);
+      expect(await versioned.proxyAdminCount()).to.equal(countBefore + 1n);
+
+      // New admin can now act
+      await expect(versioned.connect(newAdmin).registerVersion(V3, v3Addr))
         .to.emit(versioned, "VersionRegistered")
         .withArgs(V3, v3Addr);
-      // And new admin cannot yet act
-      await expect(
-        versioned.connect(newAdmin).registerVersion(ethers.encodeBytes32String("v99"), v3Addr),
-      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotProxyAdmin");
+    });
 
-      // Step 2 — pending admin accepts
-      await expect(versioned.connect(newAdmin).acceptProxyAdmin())
-        .to.emit(versioned, "ProxyAdminTransferred")
-        .withArgs(proxyAdmin.address, newAdmin.address);
-      expect(await versioned.proxyAdmin()).to.equal(newAdmin.address);
-      expect(await versioned.pendingProxyAdmin()).to.equal(ethers.ZeroAddress);
+    it("revoke: removes an address + decrements count + emits event", async function () {
+      const { versioned, proxyAdmin, admin2 } = await loadFixture(deployFixture);
+      const countBefore = await versioned.proxyAdminCount();
 
-      // Old admin now reverts
+      await expect(versioned.connect(proxyAdmin).setProxyAdmin(admin2.address, false))
+        .to.emit(versioned, "ProxyAdminRevoked")
+        .withArgs(admin2.address);
+
+      expect(await versioned.isProxyAdmin(admin2.address)).to.equal(false);
+      expect(await versioned.proxyAdminCount()).to.equal(countBefore - 1n);
+
+      // Revoked admin can no longer act
+      const v3Addr = await deployV3Impl();
       await expect(
-        versioned.connect(proxyAdmin).registerVersion(ethers.encodeBytes32String("v100"), v3Addr),
+        versioned.connect(admin2).registerVersion(V3, v3Addr),
       ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotProxyAdmin");
     });
 
-    it("transferProxyAdmin reverts on zero address", async function () {
+    it("setProxyAdmin reverts on zero address", async function () {
       const { versioned, proxyAdmin } = await loadFixture(deployFixture);
       await expect(
-        versioned.connect(proxyAdmin).transferProxyAdmin(ethers.ZeroAddress),
+        versioned.connect(proxyAdmin).setProxyAdmin(ethers.ZeroAddress, true),
       ).to.be.revertedWithCustomError(versioned, "IntuitionFeeProxy_ZeroAddress");
     });
 
-    it("non-admin cannot initiate transfer", async function () {
+    it("non-admin cannot grant or revoke", async function () {
       const { versioned, nonAdmin, newAdmin } = await loadFixture(deployFixture);
       await expect(
-        versioned.connect(nonAdmin).transferProxyAdmin(newAdmin.address),
+        versioned.connect(nonAdmin).setProxyAdmin(newAdmin.address, true),
       ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotProxyAdmin");
     });
 
-    it("acceptProxyAdmin reverts when called by non-pending address", async function () {
-      const { versioned, proxyAdmin, newAdmin, nonAdmin } = await loadFixture(deployFixture);
-
-      // No pending admin yet → anyone should revert
+    it("idempotent grant (already admin) reverts with ProxyAdminAlreadySet", async function () {
+      const { versioned, proxyAdmin, admin2 } = await loadFixture(deployFixture);
       await expect(
-        versioned.connect(newAdmin).acceptProxyAdmin(),
-      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotPendingProxyAdmin");
-
-      // After transferProxyAdmin, only `newAdmin` can accept
-      await versioned.connect(proxyAdmin).transferProxyAdmin(newAdmin.address);
-      await expect(
-        versioned.connect(nonAdmin).acceptProxyAdmin(),
-      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotPendingProxyAdmin");
-      await expect(
-        versioned.connect(proxyAdmin).acceptProxyAdmin(),
-      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotPendingProxyAdmin");
+        versioned.connect(proxyAdmin).setProxyAdmin(admin2.address, true),
+      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_ProxyAdminAlreadySet");
     });
 
-    it("transferProxyAdmin overwrites a pending candidate", async function () {
-      const { versioned, proxyAdmin, newAdmin, nonAdmin } = await loadFixture(deployFixture);
-      await versioned.connect(proxyAdmin).transferProxyAdmin(newAdmin.address);
-      expect(await versioned.pendingProxyAdmin()).to.equal(newAdmin.address);
-
-      await versioned.connect(proxyAdmin).transferProxyAdmin(nonAdmin.address);
-      expect(await versioned.pendingProxyAdmin()).to.equal(nonAdmin.address);
-
-      // Old pending can no longer accept
+    it("idempotent revoke (not an admin) reverts with ProxyAdminAlreadySet", async function () {
+      const { versioned, proxyAdmin, nonAdmin } = await loadFixture(deployFixture);
       await expect(
-        versioned.connect(newAdmin).acceptProxyAdmin(),
-      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_NotPendingProxyAdmin");
+        versioned.connect(proxyAdmin).setProxyAdmin(nonAdmin.address, false),
+      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_ProxyAdminAlreadySet");
+    });
+
+    it("last-admin guard: cannot revoke the only remaining proxyAdmin", async function () {
+      const { versioned, proxyAdmin, admin2, admin3 } = await loadFixture(deployFixture);
+
+      // Revoke admin2 + admin3 — proxyAdmin is now the only one left
+      await versioned.connect(proxyAdmin).setProxyAdmin(admin2.address, false);
+      await versioned.connect(proxyAdmin).setProxyAdmin(admin3.address, false);
+      expect(await versioned.proxyAdminCount()).to.equal(1n);
+
+      // The last admin self-revoking would lock the role permanently
+      await expect(
+        versioned.connect(proxyAdmin).setProxyAdmin(proxyAdmin.address, false),
+      ).to.be.revertedWithCustomError(versioned, "VersionedFeeProxy_LastProxyAdmin");
+    });
+
+    it("grant + revoke roundtrip on the same address", async function () {
+      const { versioned, proxyAdmin, newAdmin } = await loadFixture(deployFixture);
+      await versioned.connect(proxyAdmin).setProxyAdmin(newAdmin.address, true);
+      expect(await versioned.isProxyAdmin(newAdmin.address)).to.equal(true);
+      await versioned.connect(proxyAdmin).setProxyAdmin(newAdmin.address, false);
+      expect(await versioned.isProxyAdmin(newAdmin.address)).to.equal(false);
     });
   });
 
@@ -584,7 +603,7 @@ describe("IntuitionVersionedFeeProxy (ERC-7936)", function () {
       const VersionedFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
       const NAME = ethers.encodeBytes32String("My DAO Fees");
       const deployed = await VersionedFactory.deploy(
-        proxyAdmin.address,
+        [proxyAdmin.address],
         V2,
         await implV2.getAddress(),
         initData,

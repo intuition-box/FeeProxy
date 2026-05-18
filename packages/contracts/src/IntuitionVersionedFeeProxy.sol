@@ -16,9 +16,11 @@ import {Errors} from "./libraries/Errors.sol";
 ///    with the logic implementation's regular storage.
 ///  - No `receive()`: direct ETH transfers revert. All legitimate fee flows
 ///    carry calldata, so a bare transfer would only be a mis-send.
-///  - Admin gating is a single `proxyAdmin` address; users should point it at a
-///    multisig. Transferable via `transferProxyAdmin`.
-///  - ⚠️ **`name` is admin-controlled metadata, NOT a trust anchor.** The
+///  - Admin gating is a **whitelist of proxyAdmins** (any of them can act).
+///    Grant / revoke via `setProxyAdmin`. The last remaining admin cannot
+///    self-revoke (a runtime guard prevents accidental lock-out). Recommended
+///    setup: at least one Gnosis Safe in the list.
+///  - ⚠️ **`name` is admin-controlled metadata, NOT a trust anchor.** Any
 ///    proxy-admin can rename the proxy at any time — including to mimic a
 ///    known brand. Consumers MUST derive identity / "official" status from
 ///    the proxy address itself (e.g. the Factory's `isProxyFromFactory`
@@ -52,14 +54,18 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
         bytes32[] versionList;
         mapping(bytes32 => address) implementations;
         mapping(bytes32 => bool) versionExists;
-        address proxyAdmin;
+        // Multi-admin whitelist for Role 1 (upgrade authority). Any admin in
+        // the mapping can register versions, set default, rename, and grant /
+        // revoke other proxyAdmins. Mirrors the Role 2 (fee-admin) shape so
+        // both rotation flows feel symmetric. The pre-rotation single-slot
+        // 2-step model (proxyAdmin + pendingProxyAdmin) was dropped — the
+        // safety it provided is delivered by the recommendation to put a
+        // Safe multisig in the list, which gives N-of-M signing semantics.
+        mapping(address => bool) proxyAdmins;
+        // Count tracked alongside the mapping so the last-admin guard is O(1).
+        // Replaces the 2-step pending-admin pattern.
+        uint256 proxyAdminCount;
         bytes32 name;
-        // 2-step admin transfer: `pendingProxyAdmin` holds the candidate set by
-        // the current admin via `transferProxyAdmin`. Only that address can
-        // promote itself via `acceptProxyAdmin`. Prevents fat-fingered
-        // transfers to lost / wrong addresses. Appended — ERC-7201 namespaced
-        // slot mask (~0xff) reserves 256 slots, plenty of room.
-        address pendingProxyAdmin;
     }
 
     function _layout() private pure returns (Layout storage s) {
@@ -72,7 +78,7 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
     // ============ Modifiers ============
 
     modifier onlyProxyAdmin() {
-        if (msg.sender != _layout().proxyAdmin) {
+        if (!_layout().proxyAdmins[msg.sender]) {
             revert Errors.VersionedFeeProxy_NotProxyAdmin();
         }
         _;
@@ -80,19 +86,22 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
 
     // ============ Constructor ============
 
-    /// @param admin Proxy-admin authorized for version management (recommend: Safe)
+    /// @param initialProxyAdmins Initial whitelist (at least one non-zero, no
+    ///        duplicates). For production: include at least one Safe multisig.
     /// @param initialVersion Identifier for the initial registered version (e.g. bytes32("v2.0.0"))
     /// @param initialImpl Address of the initial logic implementation
     /// @param initData Calldata forwarded via delegatecall to initialize the logic
-    /// @param initialName Optional human-readable name (bytes32 — empty for none, editable by proxyAdmin via setName)
+    /// @param initialName Optional human-readable name (bytes32 — empty for none, editable by a proxyAdmin via setName)
     constructor(
-        address admin,
+        address[] memory initialProxyAdmins,
         bytes32 initialVersion,
         address initialImpl,
         bytes memory initData,
         bytes32 initialName
     ) {
-        if (admin == address(0)) revert Errors.IntuitionFeeProxy_ZeroAddress();
+        if (initialProxyAdmins.length == 0) {
+            revert Errors.IntuitionFeeProxy_NoAdminsProvided();
+        }
         if (initialVersion == bytes32(0)) revert Errors.VersionedFeeProxy_InvalidVersion();
         if (initialImpl == address(0) || initialImpl.code.length == 0) {
             revert Errors.VersionedFeeProxy_InvalidImplementation();
@@ -107,7 +116,23 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
         }
 
         Layout storage s = _layout();
-        s.proxyAdmin = admin;
+
+        // Seed the proxyAdmin whitelist. Reject zero addresses and dedupe
+        // (silently — duplicates in the list would otherwise inflate the
+        // count and break the last-admin guard).
+        uint256 added;
+        uint256 len = initialProxyAdmins.length;
+        for (uint256 i = 0; i < len; i++) {
+            address a = initialProxyAdmins[i];
+            if (a == address(0)) revert Errors.IntuitionFeeProxy_ZeroAddress();
+            if (!s.proxyAdmins[a]) {
+                s.proxyAdmins[a] = true;
+                emit ProxyAdminGranted(a);
+                unchecked { ++added; }
+            }
+        }
+        s.proxyAdminCount = added;
+
         s.implementations[initialVersion] = initialImpl;
         s.versionExists[initialVersion] = true;
         s.versionList.push(initialVersion);
@@ -116,7 +141,6 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
 
         _mirrorEip1967(initialImpl);
 
-        emit ProxyAdminTransferred(address(0), admin);
         emit VersionRegistered(initialVersion, initialImpl);
         emit DefaultVersionChanged(bytes32(0), initialVersion);
         if (initialName != bytes32(0)) {
@@ -213,11 +237,11 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
     ///      `receiver == msg.sender || approvals[receiver][msg.sender] & DEPOSIT`,
     ///      and `msg.sender` from the MultiVault's POV is this proxy. A new
     ///      impl could legally route deposits to any address that has approved
-    ///      this proxy on the MultiVault. The trust model relies on
-    ///      `proxyAdmin` being a Safe multisig (M-of-N, M ≥ 3 recommended).
-    ///      Users who want to be insulated from default-version switches MUST
-    ///      pin a specific version via `executeAtVersion(version, …)` rather
-    ///      than relying on the fallback.
+    ///      this proxy on the MultiVault. The trust model relies on the
+    ///      `proxyAdmins` whitelist including a Safe multisig (M-of-N, M ≥ 3
+    ///      recommended). Users who want to be insulated from default-version
+    ///      switches MUST pin a specific version via `executeAtVersion(version, …)`
+    ///      rather than relying on the fallback.
     function setDefaultVersion(bytes32 version) external onlyProxyAdmin {
         Layout storage s = _layout();
         if (!s.versionExists[version]) revert Errors.VersionedFeeProxy_VersionNotFound();
@@ -229,22 +253,25 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
     }
 
     /// @inheritdoc IIntuitionVersionedFeeProxy
-    function transferProxyAdmin(address newAdmin) external onlyProxyAdmin {
-        if (newAdmin == address(0)) revert Errors.IntuitionFeeProxy_ZeroAddress();
+    function setProxyAdmin(address admin, bool status) external onlyProxyAdmin {
+        if (admin == address(0)) revert Errors.IntuitionFeeProxy_ZeroAddress();
         Layout storage s = _layout();
-        s.pendingProxyAdmin = newAdmin;
-        emit ProxyAdminTransferStarted(s.proxyAdmin, newAdmin);
-    }
-
-    /// @inheritdoc IIntuitionVersionedFeeProxy
-    function acceptProxyAdmin() external {
-        Layout storage s = _layout();
-        address pending = s.pendingProxyAdmin;
-        if (msg.sender != pending) revert Errors.VersionedFeeProxy_NotPendingProxyAdmin();
-        address old = s.proxyAdmin;
-        s.proxyAdmin = pending;
-        delete s.pendingProxyAdmin;
-        emit ProxyAdminTransferred(old, pending);
+        bool current = s.proxyAdmins[admin];
+        if (current == status) revert Errors.VersionedFeeProxy_ProxyAdminAlreadySet();
+        // Last-admin guard: refuse to revoke the only remaining proxyAdmin,
+        // otherwise the role would be permanently lost (no one can grant it
+        // back). Mirrors the Role 2 (fee-admin) `adminCount > 0` invariant.
+        if (!status && s.proxyAdminCount == 1) {
+            revert Errors.VersionedFeeProxy_LastProxyAdmin();
+        }
+        s.proxyAdmins[admin] = status;
+        if (status) {
+            unchecked { ++s.proxyAdminCount; }
+            emit ProxyAdminGranted(admin);
+        } else {
+            unchecked { --s.proxyAdminCount; }
+            emit ProxyAdminRevoked(admin);
+        }
     }
 
     /// @inheritdoc IIntuitionVersionedFeeProxy
@@ -279,13 +306,13 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
     }
 
     /// @inheritdoc IIntuitionVersionedFeeProxy
-    function proxyAdmin() external view returns (address) {
-        return _layout().proxyAdmin;
+    function isProxyAdmin(address candidate) external view returns (bool) {
+        return _layout().proxyAdmins[candidate];
     }
 
-    /// @notice The candidate admin awaiting acceptance, or address(0) if none.
-    function pendingProxyAdmin() external view returns (address) {
-        return _layout().pendingProxyAdmin;
+    /// @inheritdoc IIntuitionVersionedFeeProxy
+    function proxyAdminCount() external view returns (uint256) {
+        return _layout().proxyAdminCount;
     }
 
     // ============ ERC-165 ============
@@ -354,10 +381,6 @@ contract IntuitionVersionedFeeProxy is IIntuitionVersionedFeeProxy {
             default { return(0, returndatasize()) }
         }
     }
-
-    // NOTE: no `receive()` — ETH transfers without calldata revert. Fee flows
-    // all come with calldata (createAtoms / deposit / …), so bare transfers
-    // would only be mis-sends.
 
     // ============ Internal ============
 

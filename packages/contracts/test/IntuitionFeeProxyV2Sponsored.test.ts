@@ -39,7 +39,7 @@ describe("IntuitionFeeProxyV2Sponsored (B1 full-sponsorship)", function () {
 
     const VerFactory = await ethers.getContractFactory("IntuitionVersionedFeeProxy");
     const vp = await VerFactory.deploy(
-      admin1.address,
+      [admin1.address],
       INITIAL_VERSION,
       await impl.getAddress(),
       initData,
