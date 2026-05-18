@@ -437,48 +437,60 @@ async function main() {
   console.log("   ✓ adminship rotated + last-admin guard enforced");
 
   // ════════════════════════════════════════════════════════════════════
-  // ⑫b 2-step proxyAdmin transfer (versioned proxy level).
-  //    deployer is still proxyAdmin here — removing from whitelistedAdmins
-  //    in ⑫ doesn't affect the versioned-proxy admin slot. Transfer it to
-  //    userA (already the sole whitelistedAdmin after ⑫) so one address
-  //    controls both surfaces going forward.
+  // ⑫b proxyAdmin whitelist rotation (versioned proxy level).
+  //    deployer is still the sole proxyAdmin here — removing it from
+  //    whitelistedAdmins in ⑫ doesn't affect the versioned-proxy admin
+  //    list. Grant userA, then revoke deployer so one address controls
+  //    both surfaces going forward.
   // ════════════════════════════════════════════════════════════════════
-  console.log("\n⑫b 2-step proxyAdmin transfer: deployer → userA …");
+  console.log("\n⑫b proxyAdmin whitelist rotation: deployer → userA …");
   assertEq(
-    (await versioned.proxyAdmin()).toLowerCase(),
-    deployer.address.toLowerCase(),
-    "proxyAdmin still = deployer (whitelist revoke didn't touch versioned admin)",
+    await versioned.isProxyAdmin(deployer.address),
+    true,
+    "deployer still proxyAdmin (whitelist revoke didn't touch versioned admin)",
   );
-  await (await versioned.connect(deployer).transferProxyAdmin(userA.address)).wait();
+  await (await versioned.connect(deployer).setProxyAdmin(userA.address, true)).wait();
   assertEq(
-    (await versioned.pendingProxyAdmin()).toLowerCase(),
-    userA.address.toLowerCase(),
-    "pendingProxyAdmin = userA",
+    await versioned.isProxyAdmin(userA.address),
+    true,
+    "userA granted proxyAdmin",
   );
-  // Guard: only the pending address can accept
+  assertEq(
+    await versioned.proxyAdminCount(),
+    2n,
+    "proxyAdminCount = 2 after grant",
+  );
+  // Guard: non-admin cannot mutate the list
   await expectRevertWithName(
-    () => versioned.connect(nonAdmin).acceptProxyAdmin(),
-    "VersionedFeeProxy_NotPendingProxyAdmin",
-    "non-pending accept blocked",
+    () => versioned.connect(nonAdmin).setProxyAdmin(nonAdmin.address, true),
+    "VersionedFeeProxy_NotProxyAdmin",
+    "non-admin setProxyAdmin blocked",
   );
-  await (await versioned.connect(userA).acceptProxyAdmin()).wait();
+  // Revoke deployer — userA becomes the sole admin
+  await (await versioned.connect(deployer).setProxyAdmin(deployer.address, false)).wait();
   assertEq(
-    (await versioned.proxyAdmin()).toLowerCase(),
-    userA.address.toLowerCase(),
-    "proxyAdmin now = userA",
+    await versioned.isProxyAdmin(deployer.address),
+    false,
+    "deployer revoked",
   );
   assertEq(
-    await versioned.pendingProxyAdmin(),
-    ethers.ZeroAddress,
-    "pendingProxyAdmin cleared",
+    await versioned.proxyAdminCount(),
+    1n,
+    "proxyAdminCount = 1 after revoke",
   );
   // Old proxyAdmin locked out
   await expectRevertWithName(
-    () => versioned.connect(deployer).transferProxyAdmin(deployer.address),
+    () => versioned.connect(deployer).setProxyAdmin(deployer.address, true),
     "VersionedFeeProxy_NotProxyAdmin",
     "old proxyAdmin locked out",
   );
-  console.log("   ✓ proxyAdmin rotated via 2-step, old admin locked out");
+  // Last-admin guard — userA cannot self-revoke
+  await expectRevertWithName(
+    () => versioned.connect(userA).setProxyAdmin(userA.address, false),
+    "VersionedFeeProxy_LastProxyAdmin",
+    "last proxyAdmin cannot self-revoke",
+  );
+  console.log("   ✓ proxyAdmin rotated via whitelist, last-admin guard enforced");
 
   // ════════════════════════════════════════════════════════════════════
   // ⑬ Final withdrawAll by userA (now sole admin)

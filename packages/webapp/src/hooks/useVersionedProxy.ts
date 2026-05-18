@@ -1,5 +1,18 @@
-import { useReadContract, useReadContracts, useWriteContract } from 'wagmi'
-import { hexToString, stringToHex, type Address, type Hex } from 'viem'
+import { useEffect, useState } from 'react'
+import {
+  useBlockNumber,
+  usePublicClient,
+  useReadContract,
+  useReadContracts,
+  useWriteContract,
+} from 'wagmi'
+import {
+  getAddress,
+  hexToString,
+  stringToHex,
+  type Address,
+  type Hex,
+} from 'viem'
 
 import { IntuitionVersionedFeeProxyABI } from '@intuition-fee-proxy/sdk'
 
@@ -10,15 +23,13 @@ export function useProxyVersions(proxy: Address | undefined) {
     contracts: [
       { abi, address: proxy, functionName: 'getVersions' },
       { abi, address: proxy, functionName: 'getDefaultVersion' },
-      { abi, address: proxy, functionName: 'proxyAdmin' },
-      { abi, address: proxy, functionName: 'pendingProxyAdmin' },
+      { abi, address: proxy, functionName: 'proxyAdminCount' },
     ],
     allowFailure: false,
     query: {
       enabled: Boolean(proxy),
-      // Auto-poll so `proxyAdmin` / `pendingProxyAdmin` reflect
-      // acceptance that happens from another wallet or tab without
-      // forcing the user to refresh.
+      // Auto-poll so the admin count reflects grants/revokes happening
+      // from another wallet or tab without forcing the user to refresh.
       refetchInterval: 10_000,
     },
   })
@@ -27,15 +38,14 @@ export function useProxyVersions(proxy: Address | undefined) {
     ...result,
     versions: (result.data?.[0] as Hex[] | undefined) ?? [],
     defaultVersion: result.data?.[1] as Hex | undefined,
-    proxyAdmin: result.data?.[2] as Address | undefined,
-    pendingProxyAdmin: result.data?.[3] as Address | undefined,
+    proxyAdminCount: (result.data?.[2] as bigint | undefined) ?? 0n,
   }
 }
 
 /**
  * Cheap 1-read hook for pages that only need the currently-active version
- * label (Explore card, etc.). Avoids the 3-read overhead of
- * `useProxyVersions` when the versions list / proxyAdmin aren't needed.
+ * label (Explore card, etc.). Avoids the overhead of `useProxyVersions`
+ * when the versions list / admin count aren't needed.
  *
  * Decodes the bytes32 to a human-readable label ("v2.0.0"). Empty string
  * if the proxy has no default set yet (shouldn't happen — Factory always
@@ -108,44 +118,130 @@ export function useSetDefaultVersion(proxy: Address | undefined) {
 }
 
 /**
- * Step 1 of the 2-step proxy-admin transfer. Only callable by the current
- * `proxyAdmin`. Sets `pendingProxyAdmin = newAdmin`; the target must then
- * call `acceptProxyAdmin()` from their own wallet to finalise. Passing a
- * wrong address is recoverable — just call again with the correct one.
+ * Grant or revoke the Role 1 (proxyAdmin) whitelist for an address.
+ * Mirrors the Role 2 `setWhitelistedAdmin` pattern — instant, no 2-step
+ * ceremony. The contract enforces:
+ *  - idempotent reject (revert if status already matches)
+ *  - last-admin guard (revert if revoke would empty the whitelist)
  */
-export function useTransferProxyAdmin(proxy: Address | undefined) {
+export function useSetProxyAdmin(proxy: Address | undefined) {
   const { writeContractAsync, data, isPending, error, reset } = useWriteContract()
 
-  function transferAdmin(newAdmin: Address) {
+  function setProxyAdmin(admin: Address, status: boolean) {
     if (!proxy) throw new Error('Proxy address missing')
     return writeContractAsync({
       abi,
       address: proxy,
-      functionName: 'transferProxyAdmin',
-      args: [newAdmin],
+      functionName: 'setProxyAdmin',
+      args: [admin, status],
     })
   }
 
-  return { transferAdmin, hash: data, isPending, error, reset }
+  return { setProxyAdmin, hash: data, isPending, error, reset }
 }
 
 /**
- * Step 2 of the 2-step proxy-admin transfer. Must be called by the address
- * currently set as `pendingProxyAdmin`. Promotes caller to `proxyAdmin`.
+ * Reconstruct the current proxyAdmin whitelist from the on-chain
+ * `ProxyAdminGranted` / `ProxyAdminRevoked` event log. Mirrors the
+ * Role 2 `useAdmins` pattern — the contract doesn't expose a getter
+ * for the full list, so we reduce events.
  */
-export function useAcceptProxyAdmin(proxy: Address | undefined) {
-  const { writeContractAsync, data, isPending, error, reset } = useWriteContract()
+export function useProxyAdmins(proxy: Address | undefined) {
+  const publicClient = usePublicClient()
+  const { data: currentBlock } = useBlockNumber({ watch: true })
+  const [admins, setAdmins] = useState<Address[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  function acceptAdmin() {
-    if (!proxy) throw new Error('Proxy address missing')
-    return writeContractAsync({
-      abi,
-      address: proxy,
-      functionName: 'acceptProxyAdmin',
-    })
-  }
+  useEffect(() => {
+    if (!publicClient || !proxy || !currentBlock) return
+    let cancelled = false
+    setIsLoading(true)
+    setError(null)
+    Promise.all([
+      publicClient.getLogs({
+        address: proxy,
+        event: {
+          type: 'event',
+          name: 'ProxyAdminGranted',
+          inputs: [{ type: 'address', name: 'admin', indexed: true }],
+        },
+        fromBlock: 0n,
+        toBlock: currentBlock,
+      }),
+      publicClient.getLogs({
+        address: proxy,
+        event: {
+          type: 'event',
+          name: 'ProxyAdminRevoked',
+          inputs: [{ type: 'address', name: 'admin', indexed: true }],
+        },
+        fromBlock: 0n,
+        toBlock: currentBlock,
+      }),
+    ])
+      .then(([grants, revokes]) => {
+        if (cancelled) return
+        type LogShape = { args: { admin: Address }; blockNumber: bigint; logIndex: number }
+        // Order all events by (block, logIndex) and replay them.
+        const events: Array<{ admin: Address; granted: boolean; bn: bigint; li: number }> =
+          [
+            ...grants.map((l) => {
+              const x = l as unknown as LogShape
+              return {
+                admin: x.args.admin,
+                granted: true,
+                bn: x.blockNumber,
+                li: x.logIndex,
+              }
+            }),
+            ...revokes.map((l) => {
+              const x = l as unknown as LogShape
+              return {
+                admin: x.args.admin,
+                granted: false,
+                bn: x.blockNumber,
+                li: x.logIndex,
+              }
+            }),
+          ].sort((a, b) => (a.bn === b.bn ? a.li - b.li : a.bn < b.bn ? -1 : 1))
 
-  return { acceptAdmin, hash: data, isPending, error, reset }
+        const set = new Set<string>()
+        for (const e of events) {
+          const a = getAddress(e.admin)
+          if (e.granted) set.add(a)
+          else set.delete(a)
+        }
+        setAdmins(Array.from(set) as Address[])
+        setIsLoading(false)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e as Error)
+        setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [publicClient, proxy, currentBlock ? Number(currentBlock) : 0, refreshKey])
+
+  return { admins, isLoading, error, refetch: () => setRefreshKey((k) => k + 1) }
+}
+
+/** Read whether a given address is currently a proxyAdmin. */
+export function useIsProxyAdmin(
+  proxy: Address | undefined,
+  candidate: Address | undefined,
+) {
+  const result = useReadContract({
+    abi,
+    address: proxy,
+    functionName: 'isProxyAdmin',
+    args: candidate ? [candidate] : undefined,
+    query: { enabled: Boolean(proxy && candidate) },
+  })
+  return { ...result, isProxyAdmin: Boolean(result.data) }
 }
 
 /** Read the proxy's human-readable name (bytes32, decoded to string). */

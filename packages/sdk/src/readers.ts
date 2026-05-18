@@ -190,12 +190,16 @@ export async function readSponsoredMetrics(
   }
 }
 
-/** Registered version labels + current default + current + pending proxy admin.
+/** Registered version labels + current default + size of the proxyAdmin whitelist.
  *
  * Hybrid dispatch: Multicall3 with `allowFailure: true` on chains that
- * support it (per-field revert tolerant — older impls missing
- * `pendingProxyAdmin` don't break the read), parallel per-field reads
+ * support it (per-field revert tolerant), parallel per-field reads
  * otherwise. Both return identical shape.
+ *
+ * Role 1 became a whitelist post 2-step retirement — callers that need
+ * the full admin list should reduce the `ProxyAdminGranted` /
+ * `ProxyAdminRevoked` event log (no on-chain getter is exposed for the
+ * full set).
  */
 export async function readProxyVersions(
   client: PublicClient,
@@ -203,41 +207,36 @@ export async function readProxyVersions(
 ): Promise<{
   versions: readonly `0x${string}`[]
   defaultVersion: `0x${string}` | undefined
-  proxyAdmin: Address | undefined
-  pendingProxyAdmin: Address | undefined
+  proxyAdminCount: bigint
 }> {
   const abi = IntuitionVersionedFeeProxyABI as any
   const contracts = [
     { abi, address: proxy, functionName: 'getVersions' },
     { abi, address: proxy, functionName: 'getDefaultVersion' },
-    { abi, address: proxy, functionName: 'proxyAdmin' },
-    { abi, address: proxy, functionName: 'pendingProxyAdmin' },
+    { abi, address: proxy, functionName: 'proxyAdminCount' },
   ] as const
 
   try {
-    const [versions, defaultVersion, proxyAdmin, pendingProxyAdmin] =
+    const [versions, defaultVersion, proxyAdminCount] =
       await client.multicall({ allowFailure: true, contracts: contracts as any })
     return {
       versions: versions.status === 'success' ? (versions.result as readonly `0x${string}`[]) : [],
       defaultVersion: defaultVersion.status === 'success' ? (defaultVersion.result as `0x${string}`) : undefined,
-      proxyAdmin: proxyAdmin.status === 'success' ? (proxyAdmin.result as Address) : undefined,
-      pendingProxyAdmin: pendingProxyAdmin.status === 'success' ? (pendingProxyAdmin.result as Address) : undefined,
+      proxyAdminCount: proxyAdminCount.status === 'success' ? (proxyAdminCount.result as bigint) : 0n,
     }
   } catch {
     // Fallback — no Multicall3 on this chain. Per-field try-catch so a
     // single-field revert doesn't poison the whole read.
     const safe = <T>(p: Promise<T>): Promise<T | undefined> => p.catch(() => undefined)
-    const [versions, defaultVersion, proxyAdmin, pendingProxyAdmin] = await Promise.all([
+    const [versions, defaultVersion, proxyAdminCount] = await Promise.all([
       safe(client.readContract(contracts[0] as any) as Promise<readonly `0x${string}`[]>),
       safe(client.readContract(contracts[1] as any) as Promise<`0x${string}`>),
-      safe(client.readContract(contracts[2] as any) as Promise<Address>),
-      safe(client.readContract(contracts[3] as any) as Promise<Address>),
+      safe(client.readContract(contracts[2] as any) as Promise<bigint>),
     ])
     return {
       versions: versions ?? [],
       defaultVersion,
-      proxyAdmin,
-      pendingProxyAdmin,
+      proxyAdminCount: proxyAdminCount ?? 0n,
     }
   }
 }
