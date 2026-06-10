@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getAbiItem, type Address, type Hash } from 'viem'
+import { getAbiItem, type Abi, type Address, type Hash } from 'viem'
 import { usePublicClient } from 'wagmi'
 
 import { FeeProxyABI } from '../contracts'
@@ -54,7 +54,7 @@ export function useAffiliateActivity(affiliate: Address | undefined) {
         publicClient
           .getLogs({
             address: feeProxy,
-            event: getAbiItem({ abi: FeeProxyABI, name }) as any,
+            event: getAbiItem({ abi: FeeProxyABI as Abi, name }) as any,
             args: { affiliate } as any,
             fromBlock: 0n,
             toBlock: 'latest',
