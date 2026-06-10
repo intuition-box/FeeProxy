@@ -1,4 +1,4 @@
-import type { AffiliateConfig, AffiliateStats } from '@intuition-fee-proxy/sdk'
+import type { AffiliateConfig, AffiliateStats } from '../contracts'
 import Address from './Address'
 import { Stat } from './Stat'
 import { Metric } from './Metric'

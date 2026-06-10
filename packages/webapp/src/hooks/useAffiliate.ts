@@ -5,7 +5,7 @@ import {
   FeeProxyABI,
   type AffiliateConfig,
   type AffiliateStats,
-} from '@intuition-fee-proxy/sdk'
+} from '../contracts'
 
 import { useFeeProxyAddress } from './useFeeProxyAddress'
 

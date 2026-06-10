@@ -1,7 +1,7 @@
 import { useWriteContract } from 'wagmi'
 import type { Address } from 'viem'
 
-import { FeeProxyABI, type FeeConfig } from '@intuition-fee-proxy/sdk'
+import { FeeProxyABI, type FeeConfig } from '../contracts'
 
 import { useFeeProxyAddress } from './useFeeProxyAddress'
 

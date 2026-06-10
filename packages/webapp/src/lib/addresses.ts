@@ -1,4 +1,4 @@
-import { FEEPROXY_ADDRESSES, MULTIVAULT_ADDRESSES } from '@intuition-fee-proxy/sdk'
+import { FEEPROXY_ADDRESSES, MULTIVAULT_ADDRESSES } from '../contracts'
 import type { Address } from 'viem'
 
 type Network = 'mainnet' | 'testnet'

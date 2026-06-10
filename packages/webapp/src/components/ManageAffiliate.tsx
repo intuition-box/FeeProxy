@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Address } from 'viem'
 import { useWaitForTransactionReceipt } from 'wagmi'
 
-import type { AffiliateConfig, FeeConfig } from '@intuition-fee-proxy/sdk'
+import type { AffiliateConfig, FeeConfig } from '../contracts'
 
 import { useProtocolConfig } from '../hooks/useProtocolConfig'
 import { useUpdateAffiliateFees, useUpdateFeeRecipient } from '../hooks/useAffiliateWrites'

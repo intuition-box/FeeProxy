@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import type { Address } from 'viem'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 
-import type { FeeConfig } from '@intuition-fee-proxy/sdk'
+import type { FeeConfig } from '../contracts'
 
 import { useProtocolConfig } from '../hooks/useProtocolConfig'
 import { useAffiliate } from '../hooks/useAffiliate'
