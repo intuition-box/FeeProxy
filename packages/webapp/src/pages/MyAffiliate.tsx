@@ -8,6 +8,7 @@ import { Spinner } from '../components/Spinner'
 import { AffiliateConfigCard, AffiliateStatsCard } from '../components/AffiliateView'
 import { ManageAffiliate } from '../components/ManageAffiliate'
 import { IntegrationKit } from '../components/IntegrationKit'
+import { ActivityFeed } from '../components/ActivityFeed'
 
 export default function MyAffiliatePage() {
   const { address } = useAccount()
@@ -57,6 +58,7 @@ export default function MyAffiliatePage() {
         <div className="space-y-10">
           <AffiliateConfigCard config={config} />
           {stats && <AffiliateStatsCard stats={stats} />}
+          <ActivityFeed affiliate={address} />
           <IntegrationKit
             feeProxy={feeProxy}
             affiliate={address}
