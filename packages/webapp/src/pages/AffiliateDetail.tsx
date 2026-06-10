@@ -8,6 +8,7 @@ import AddressDisplay from '../components/Address'
 import { Spinner } from '../components/Spinner'
 import { ViewerBanner } from '../components/ViewerBanner'
 import { AffiliateConfigCard, AffiliateStatsCard } from '../components/AffiliateView'
+import { ActivityFeed } from '../components/ActivityFeed'
 
 export default function AffiliateDetailPage() {
   const params = useParams<{ address: string }>()
@@ -66,6 +67,7 @@ export default function AffiliateDetailPage() {
         <div className="space-y-10">
           <AffiliateConfigCard config={config} />
           {stats && <AffiliateStatsCard stats={stats} />}
+          <ActivityFeed affiliate={affiliate!} />
           {isSelf ? (
             <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
               This is your affiliate.{' '}

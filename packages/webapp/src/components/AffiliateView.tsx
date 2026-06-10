@@ -1,4 +1,4 @@
-import type { AffiliateConfig, AffiliateStats } from '@intuition-fee-proxy/sdk'
+import type { AffiliateConfig, AffiliateStats } from '../contracts'
 import Address from './Address'
 import { Stat } from './Stat'
 import { Metric } from './Metric'
@@ -16,7 +16,7 @@ export function AffiliateConfigCard({ config }: { config: AffiliateConfig }) {
             Paused
           </span>
         ) : (
-          <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 border border-emerald-400/40 rounded px-1.5 py-0.5">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-brand border border-brand/40 rounded px-1.5 py-0.5">
             Active
           </span>
         )}

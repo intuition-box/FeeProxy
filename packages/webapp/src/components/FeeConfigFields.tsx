@@ -1,5 +1,5 @@
 import { parseEther } from 'viem'
-import type { FeeConfig } from '@intuition-fee-proxy/sdk'
+import type { FeeConfig } from '../contracts'
 import { formatBps, formatTrust } from '../lib/format'
 
 export type FeeFields = {

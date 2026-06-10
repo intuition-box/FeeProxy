@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getAbiItem, type Address, type Hash } from 'viem'
 import { useBlockNumber, usePublicClient } from 'wagmi'
 
-import { FeeProxyABI, type FeeConfig } from '@intuition-fee-proxy/sdk'
+import { FeeProxyABI, type FeeConfig } from '../contracts'
 
 import { useFeeProxyAddress } from './useFeeProxyAddress'
 

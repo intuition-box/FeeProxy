@@ -1,6 +1,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { defineChain } from 'viem'
-import { INTUITION_MAINNET, INTUITION_TESTNET } from '@intuition-fee-proxy/sdk'
+import { INTUITION_MAINNET, INTUITION_TESTNET } from '../contracts'
 
 // Re-wrap the plain SDK chain objects with viem's defineChain so they satisfy
 // wagmi's `Chain` type (and benefit from the proper branding).
