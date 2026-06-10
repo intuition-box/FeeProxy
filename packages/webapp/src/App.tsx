@@ -5,7 +5,6 @@ import RegisterPage from './pages/Register'
 import AffiliatesPage from './pages/Affiliates'
 import MyAffiliatePage from './pages/MyAffiliate'
 import AffiliateDetailPage from './pages/AffiliateDetail'
-import AdminPage from './pages/Admin'
 import DocsPage from './pages/Docs'
 
 export default function App() {
@@ -17,7 +16,6 @@ export default function App() {
         <Route path="/affiliates" element={<AffiliatesPage />} />
         <Route path="/me" element={<MyAffiliatePage />} />
         <Route path="/affiliate/:address" element={<AffiliateDetailPage />} />
-        <Route path="/admin" element={<AdminPage />} />
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/docs/:section" element={<DocsPage />} />
       </Route>

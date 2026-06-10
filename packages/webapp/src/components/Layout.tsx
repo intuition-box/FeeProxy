@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { to: '/register', label: 'Register' },
   { to: '/affiliates', label: 'Affiliates' },
   { to: '/me', label: 'My affiliate' },
-  { to: '/admin', label: 'Admin' },
   { to: '/docs', label: 'Docs' },
 ]
 
