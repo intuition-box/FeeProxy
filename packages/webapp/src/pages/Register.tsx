@@ -98,7 +98,7 @@ export default function RegisterPage() {
       )}
 
       {isSuccess && (
-        <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-300">
+        <div className="rounded-lg border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-brand">
           Registered. <Link to="/me" className="underline">Go to your affiliate →</Link>
         </div>
       )}

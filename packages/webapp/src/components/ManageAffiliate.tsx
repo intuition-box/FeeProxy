@@ -87,7 +87,7 @@ function UpdateFeesPanel({
       {error && !formError && (
         <p className="text-xs text-rose-400 font-mono">{error.message.split('\n')[0]}</p>
       )}
-      {isSuccess && <p className="text-xs text-emerald-400">Fees updated.</p>}
+      {isSuccess && <p className="text-xs text-brand">Fees updated.</p>}
       <button
         type="submit"
         disabled={!canWrite || isPending || confirming}
@@ -148,7 +148,7 @@ function UpdateRecipientPanel({
       {error && !formError && (
         <p className="text-xs text-rose-400 font-mono">{error.message.split('\n')[0]}</p>
       )}
-      {isSuccess && <p className="text-xs text-emerald-400">Recipient updated.</p>}
+      {isSuccess && <p className="text-xs text-brand">Recipient updated.</p>}
       <button
         type="submit"
         disabled={!canWrite || isPending || confirming}
