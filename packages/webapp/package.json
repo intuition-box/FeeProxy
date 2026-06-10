@@ -3,7 +3,7 @@
   "version": "2.0.0-alpha",
   "private": true,
   "type": "module",
-  "description": "IntuitionFeeProxy Factory webapp — deploy & manage fee proxies",
+  "description": "Intuition FeeProxy singleton — affiliate registration & dashboard",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -11,8 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@intuition-fee-proxy/safe-tx": "workspace:*",
-    "@intuition-fee-proxy/sdk": "workspace:*",
     "@rainbow-me/rainbowkit": "^2.1.0",
     "@tanstack/react-query": "^5.51.0",
     "react": "^18.3.1",
