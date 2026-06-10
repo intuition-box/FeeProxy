@@ -6,27 +6,18 @@ export const MULTIVAULT_ADDRESSES = {
 } as const satisfies Record<NetworkName, `0x${string}`>
 
 /**
- * V2 IntuitionFeeProxy Factory addresses per network.
+ * Address of the multi-tenant `FeeProxy` singleton per network.
  *
- * Only the Factory is pinned. Standard and sponsored implementation
- * addresses are NOT snapshotted here — both are mutable via
- * `Factory.setImplementation` / `Factory.setSponsoredImplementation`
- * and must be read live from the Factory contract:
+ * One contract per network hosts every affiliate. `treasury`, `multiVault`,
+ * `maxBps`, `maxFixedFee` and `registrationFee` are read live from this
+ * address (see {@link readProtocolConfig}) — never snapshotted here, so the
+ * SDK can't drift from on-chain state.
  *
- *   const std  = await factory.read.currentImplementation()
- *   const spns = await factory.read.sponsoredImplementation()
- *
- * Treats the Factory as the single on-chain registry of truth — no
- * SDK-level drift possible.
- *
- * Populated after V2 deployment.
+ * The zero address means "not configured yet"; the webapp degrades gracefully
+ * (read paths return empty, write paths stay disabled). Populate each entry
+ * once Intuition publishes the deployed singleton address.
  */
-export const V2_ADDRESSES = {
-  mainnet: {
-    // Not yet deployed — webapp treats the zero address as "not configured".
-    factory: '0x0000000000000000000000000000000000000000',
-  },
-  testnet: {
-    factory: '0xB33D7D9C9E618Ec55B99D38b373aE533f1Ab0d68',
-  },
-} as const satisfies Record<NetworkName, { factory: `0x${string}` }>
+export const FEEPROXY_ADDRESSES = {
+  mainnet: '0x0000000000000000000000000000000000000000',
+  testnet: '0x0000000000000000000000000000000000000000',
+} as const satisfies Record<NetworkName, `0x${string}`>

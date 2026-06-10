@@ -1,4 +1,19 @@
-import { hexToString, type Hex } from 'viem'
+import { formatUnits, hexToString, type Hex } from 'viem'
+
+/** Format a wei amount of native TRUST to a trimmed decimal string. */
+export function formatTrust(wei: bigint, maxFractionDigits = 6): string {
+  const s = formatUnits(wei, 18)
+  if (!s.includes('.')) return s
+  const [int, frac] = s.split('.')
+  const trimmed = frac.slice(0, maxFractionDigits).replace(/0+$/, '')
+  return trimmed ? `${int}.${trimmed}` : int
+}
+
+/** Format basis points (base 10000) as a percentage string, e.g. `250n → "2.5%"`. */
+export function formatBps(bps: bigint): string {
+  const pct = Number(bps) / 100
+  return `${pct % 1 === 0 ? pct.toFixed(0) : pct.toString()}%`
+}
 
 /**
  * Format a UNIX seconds timestamp to a readable local string.

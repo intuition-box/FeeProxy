@@ -1,36 +1,28 @@
 /**
  * Public surface of the @intuition-fee-proxy/sdk package.
  *
- * Three concern areas:
- *  - ABIs + addresses + chain configs — the foundational types consumers
- *    need to read/write contracts.
- *  - Canonical registry (versions.ts) — the curated list of reviewed impls
- *    proxy admins are recommended to adopt. Empty until the first release.
+ * Thin integration layer for the multi-tenant `FeeProxy` singleton:
+ *  - ABI + addresses + chain configs — the foundational pieces consumers
+ *    need to read/write the contract.
  *  - Readers (readers.ts) — framework-agnostic helpers that take a viem
- *    PublicClient and return typed data. The webapp's wagmi hooks are
- *    thin adapters over these; other frameworks re-use them directly.
+ *    PublicClient and return typed data (protocol config, affiliate config,
+ *    affiliate analytics, role checks, affiliate enumeration). The webapp's
+ *    wagmi hooks are thin adapters over these; other frameworks re-use them.
+ *  - Fee math + roles (affiliateFees.ts) — pure helpers mirroring the
+ *    on-chain fee formula, FeeGuard construction, and the AccessControl roles.
+ *  - MultiVault primitives (caip / term / atom) — unchanged; the singleton
+ *    forwards to the same MultiVault.
+ *
+ * Swappable: when Intuition ships their official SDK, consumers migrate import
+ * by import; until then this package is the integration surface.
  */
 
 export * from './addresses'
 export * from './chains'
-export * from './versions'
 export * from './readers'
+export * from './affiliateFees'
 export * from './caip'
 export * from './term'
 export * from './atom'
-export * from './feeQuote'
 
-import IntuitionFeeProxyV2Abi from './abis/IntuitionFeeProxyV2.json'
-import IntuitionFeeProxyV2SponsoredAbi from './abis/IntuitionFeeProxyV2Sponsored.json'
-import IntuitionFeeProxyFactoryAbi from './abis/IntuitionFeeProxyFactory.json'
-import IntuitionVersionedFeeProxyAbi from './abis/IntuitionVersionedFeeProxy.json'
-import IntuitionFeeProxyV1Abi from './abis/IntuitionFeeProxy.json'
-
-export const IntuitionFeeProxyV2ABI = IntuitionFeeProxyV2Abi
-/** V2Sponsored ABI — superset of V2 adding the shared sponsor pool, per-user rate limits, and `depositSponsored`. */
-export const IntuitionFeeProxyV2SponsoredABI = IntuitionFeeProxyV2SponsoredAbi
-export const IntuitionFeeProxyFactoryABI = IntuitionFeeProxyFactoryAbi
-/** ERC-7936 versioned proxy ABI — the contract deployed by the Factory. */
-export const IntuitionVersionedFeeProxyABI = IntuitionVersionedFeeProxyAbi
-/** V1 legacy ABI (for reading historical deployments in dashboards). */
-export const IntuitionFeeProxyV1ABI = IntuitionFeeProxyV1Abi
+export { FeeProxyABI } from './abis/feeProxy'

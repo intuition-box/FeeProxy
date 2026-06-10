@@ -3,15 +3,16 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useDisconnect } from 'wagmi'
 
-import { useFactoryIdentity } from '../hooks/useFactory'
+import { useFeeProxyAddress } from '../hooks/useFeeProxyAddress'
 import Address from './Address'
 import LaserFlow from './LaserFlow'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home', end: true },
-  { to: '/deploy', label: 'Deploy' },
-  { to: '/explore', label: 'Explore' },
-  { to: '/my-proxies', label: 'My proxies' },
+  { to: '/register', label: 'Register' },
+  { to: '/affiliates', label: 'Affiliates' },
+  { to: '/me', label: 'My affiliate' },
+  { to: '/admin', label: 'Admin' },
   { to: '/docs', label: 'Docs' },
 ]
 
@@ -83,7 +84,7 @@ export default function Layout() {
 
       <footer className="sticky bottom-0 z-20 bg-canvas/70 backdrop-blur-md border-t border-line">
         <div className="px-6 py-4 flex items-center justify-between text-xs text-subtle">
-          <FactoryStamp />
+          <FeeProxyStamp />
           <div className="flex items-center gap-5">
             <a
               href="https://intuition.systems"
@@ -117,7 +118,7 @@ function Wordmark() {
           Intuition.box
         </span>
         <span className="font-normal text-[17px] text-muted tracking-tight">
-          Proxy Factory
+          Fee Proxy
         </span>
       </div>
     </Link>
@@ -186,20 +187,19 @@ function ThemeToggle() {
   )
 }
 
-function FactoryStamp() {
-  const { factory, version } = useFactoryIdentity()
-  if (!factory) {
+function FeeProxyStamp() {
+  const { feeProxy, configured } = useFeeProxyAddress()
+  if (!configured) {
     return (
       <span className="inline-flex items-center gap-2 font-mono text-[11px] text-subtle">
-        Factory not configured
+        FeeProxy not configured
       </span>
     )
   }
   return (
     <span className="inline-flex items-center gap-2 font-mono text-[11px] text-subtle">
-      <span>Factory</span>
-      {version ? <span className="text-muted">v{version}</span> : null}
-      <Address value={factory} variant="short" />
+      <span>FeeProxy</span>
+      <Address value={feeProxy} variant="short" />
     </span>
   )
 }
@@ -249,7 +249,6 @@ function WalletButton() {
                 onClick={openChainModal}
                 className="h-9 px-3 inline-flex items-center gap-2 rounded-md border border-rose-500/40 bg-rose-500/5 text-sm font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
               >
-                <span aria-hidden>⚠</span>
                 Wrong network
               </button>
             )}

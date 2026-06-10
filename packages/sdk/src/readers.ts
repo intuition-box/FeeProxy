@@ -1,243 +1,249 @@
 /**
- * Framework-agnostic readers — use them from any environment that has a viem
- * PublicClient (Node scripts, Next.js RSC, Cloudflare Workers…). The webapp
- * uses wagmi hooks that call these same contract functions; keep the two in
- * sync when adding new reads.
+ * Framework-agnostic readers for the multi-tenant `FeeProxy` singleton — use
+ * them from any environment with a viem PublicClient (Node scripts, Next.js
+ * RSC, Cloudflare Workers…). The webapp's wagmi hooks are thin adapters over
+ * these; keep the two in sync when adding new reads.
  */
 
-import type { Address, PublicClient } from 'viem'
+import { getAbiItem } from 'viem'
+import type { Address, Hash, PublicClient } from 'viem'
 
-import {
-  IntuitionFeeProxyFactoryABI,
-  IntuitionFeeProxyV2ABI,
-  IntuitionFeeProxyV2SponsoredABI,
-  IntuitionVersionedFeeProxyABI,
-} from './index'
+import { FeeProxyABI } from './abis/feeProxy'
 
-export type ProxyStats = {
-  ethMultiVault: Address
+/** Per-affiliate fee schedule (mirrors the on-chain `FeeConfig` struct). */
+export type FeeConfig = {
+  depositBps: bigint
+  creationBps: bigint
   depositFixedFee: bigint
-  depositPercentageFee: bigint
-  accumulatedFees: bigint
-  totalFeesCollectedAllTime: bigint
-  adminCount: bigint
+  creationFixedFee: bigint
 }
 
-export type ProxyMetrics = {
-  totalAtomsCreated: bigint
-  totalTriplesCreated: bigint
-  totalDeposits: bigint
-  totalVolume: bigint
-  totalUniqueUsers: bigint
-  lastActivityBlock: bigint
+/** Protocol-level configuration of the singleton (read live, never snapshotted). */
+export type ProtocolConfig = {
+  multiVault: Address
+  treasury: Address
+  maxBps: bigint
+  maxFixedFee: bigint
+  registrationFee: bigint
+  paused: boolean
 }
 
-export type SponsoredMetrics = {
-  sponsoredDeposits: bigint
-  sponsoredVolume: bigint
-  uniqueSponsoredReceivers: bigint
+/** A single affiliate's registry row. */
+export type AffiliateConfig = {
+  fees: FeeConfig
+  feeRecipient: Address
+  /** Unix seconds of registration; `0n` ⇒ never registered. */
+  registeredAt: bigint
+  paused: boolean
 }
 
-/** Every proxy ever deployed via the factory, in deployment order. */
-export async function fetchAllProxies(
-  client: PublicClient,
-  factory: Address,
-): Promise<readonly Address[]> {
-  return (await client.readContract({
-    abi: IntuitionFeeProxyFactoryABI as any,
-    address: factory,
-    functionName: 'getAllProxies',
-  })) as readonly Address[]
+/** Aggregate per-affiliate analytics. */
+export type AffiliateStats = {
+  txCount: bigint
+  uniqueUsers: bigint
+  totalGrossAssets: bigint
+  totalFees: bigint
+  totalForwardedAssets: bigint
+  depositCount: bigint
+  depositGrossAssets: bigint
+  depositFees: bigint
+  depositForwardedAssets: bigint
+  creationCount: bigint
+  creationGrossAssets: bigint
+  creationFees: bigint
+  creationForwardedAssets: bigint
 }
 
-/** Proxies a given deployer wallet has created. */
-export async function fetchProxiesByDeployer(
-  client: PublicClient,
-  factory: Address,
-  deployer: Address,
-): Promise<readonly Address[]> {
-  return (await client.readContract({
-    abi: IntuitionFeeProxyFactoryABI as any,
-    address: factory,
-    functionName: 'getProxiesByDeployer',
-    args: [deployer],
-  })) as readonly Address[]
+/** Per-affiliate, per-user analytics. */
+export type AffiliateUserStats = {
+  txCount: bigint
+  totalGrossAssets: bigint
+  totalFees: bigint
+  totalForwardedAssets: bigint
+  depositCount: bigint
+  depositGrossAssets: bigint
+  depositFees: bigint
+  depositForwardedAssets: bigint
+  creationCount: bigint
+  creationGrossAssets: bigint
+  creationFees: bigint
+  creationForwardedAssets: bigint
 }
 
-/** Batch-read the 6 headline stats for a proxy instance.
+const abi = FeeProxyABI as any
+
+/**
+ * Batch-read the protocol-level config of the singleton.
  *
  * Hybrid dispatch: tries `client.multicall()` first (1 RPC round-trip on
- * chains with Multicall3 deployed — testnet + mainnet), falls back to
- * parallel `readContract` calls (N round-trips) on chains without —
- * typically a fresh hardhat node. Both paths return identical data; the
- * fallback just costs more HTTP hops, not more on-chain gas.
+ * chains with Multicall3 — testnet + mainnet), falls back to parallel
+ * `readContract` calls otherwise. Both paths return identical data.
  */
-export async function readProxyStats(
+export async function readProtocolConfig(
   client: PublicClient,
-  proxy: Address,
-): Promise<ProxyStats> {
-  const abi = IntuitionFeeProxyV2ABI as any
+  feeProxy: Address,
+): Promise<ProtocolConfig> {
   const contracts = [
-    { abi, address: proxy, functionName: 'ethMultiVault' },
-    { abi, address: proxy, functionName: 'depositFixedFee' },
-    { abi, address: proxy, functionName: 'depositPercentageFee' },
-    { abi, address: proxy, functionName: 'accumulatedFees' },
-    { abi, address: proxy, functionName: 'totalFeesCollectedAllTime' },
-    { abi, address: proxy, functionName: 'adminCount' },
+    { abi, address: feeProxy, functionName: 'multiVault' },
+    { abi, address: feeProxy, functionName: 'treasury' },
+    { abi, address: feeProxy, functionName: 'maxBps' },
+    { abi, address: feeProxy, functionName: 'maxFixedFee' },
+    { abi, address: feeProxy, functionName: 'registrationFee' },
+    { abi, address: feeProxy, functionName: 'paused' },
   ] as const
 
   let results: readonly unknown[]
   try {
     results = await client.multicall({ allowFailure: false, contracts: contracts as any })
   } catch {
-    results = await Promise.all(
-      contracts.map((c) => client.readContract(c as any)),
-    )
+    results = await Promise.all(contracts.map((c) => client.readContract(c as any)))
   }
-  const [ethMultiVault, depositFixedFee, depositPercentageFee, accumulatedFees, totalFeesCollectedAllTime, adminCount] = results
+  const [multiVault, treasury, maxBps, maxFixedFee, registrationFee, paused] = results
   return {
-    ethMultiVault: ethMultiVault as Address,
-    depositFixedFee: depositFixedFee as bigint,
-    depositPercentageFee: depositPercentageFee as bigint,
-    accumulatedFees: accumulatedFees as bigint,
-    totalFeesCollectedAllTime: totalFeesCollectedAllTime as bigint,
-    adminCount: adminCount as bigint,
+    multiVault: multiVault as Address,
+    treasury: treasury as Address,
+    maxBps: maxBps as bigint,
+    maxFixedFee: maxFixedFee as bigint,
+    registrationFee: registrationFee as bigint,
+    paused: paused as boolean,
   }
 }
 
-/** Aggregate on-chain metrics emitted on every write-path. */
-export async function readProxyMetrics(
+/** A single affiliate's registry row. `registeredAt === 0n` ⇒ unregistered. */
+export async function readAffiliateConfig(
   client: PublicClient,
-  proxy: Address,
-): Promise<ProxyMetrics> {
+  feeProxy: Address,
+  affiliate: Address,
+): Promise<AffiliateConfig> {
   const raw = (await client.readContract({
-    abi: IntuitionFeeProxyV2ABI as any,
-    address: proxy,
-    functionName: 'getMetrics',
-  })) as {
-    totalAtomsCreated: bigint
-    totalTriplesCreated: bigint
-    totalDeposits: bigint
-    totalVolume: bigint
-    totalUniqueUsers: bigint
-    lastActivityBlock: bigint
-  }
-  return { ...raw }
+    abi,
+    address: feeProxy,
+    functionName: 'affiliateConfig',
+    args: [affiliate],
+  })) as AffiliateConfig
+  return raw
+}
+
+/** Aggregate analytics for an affiliate. Zero-filled if never active. */
+export async function readAffiliateStats(
+  client: PublicClient,
+  feeProxy: Address,
+  affiliate: Address,
+): Promise<AffiliateStats> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'affiliateStats',
+    args: [affiliate],
+  })) as AffiliateStats
+}
+
+/** Per-user analytics under a given affiliate. */
+export async function readAffiliateUserStats(
+  client: PublicClient,
+  feeProxy: Address,
+  affiliate: Address,
+  user: Address,
+): Promise<AffiliateUserStats> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'affiliateUserStats',
+    args: [affiliate, user],
+  })) as AffiliateUserStats
+}
+
+/** True once an affiliate row exists (registered, possibly paused). */
+export async function isAffiliateRegistered(
+  client: PublicClient,
+  feeProxy: Address,
+  affiliate: Address,
+): Promise<boolean> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'isAffiliateRegistered',
+    args: [affiliate],
+  })) as boolean
+}
+
+/** True when an affiliate is registered AND not paused (routable). */
+export async function isAffiliateActive(
+  client: PublicClient,
+  feeProxy: Address,
+  affiliate: Address,
+): Promise<boolean> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'isAffiliateActive',
+    args: [affiliate],
+  })) as boolean
+}
+
+/** Pull-fallback refund owed to `user` (claimable via `claimRefund`). */
+export async function readPendingRefund(
+  client: PublicClient,
+  feeProxy: Address,
+  user: Address,
+): Promise<bigint> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'pendingRefund',
+    args: [user],
+  })) as bigint
+}
+
+/** AccessControl membership check. Resolve role hashes via {@link feeProxyRoles}. */
+export async function hasFeeProxyRole(
+  client: PublicClient,
+  feeProxy: Address,
+  role: `0x${string}`,
+  account: Address,
+): Promise<boolean> {
+  return (await client.readContract({
+    abi,
+    address: feeProxy,
+    functionName: 'hasRole',
+    args: [role, account],
+  })) as boolean
+}
+
+/** A registered affiliate, surfaced from an `AffiliateRegistered` log. */
+export type AffiliateRegistration = {
+  affiliate: Address
+  feeRecipient: Address
+  fees: FeeConfig
+  registrationFee: bigint
+  blockNumber: bigint
+  txHash: Hash
 }
 
 /**
- * Reads the on-chain `version()` label. Only the sponsored family of impls
- * exposes it — standard impls revert because the selector isn't in their ABI,
- * which is the signal callers use to classify the channel:
- *   label containing "-sponsored" → sponsored
- *   revert (undefined)            → standard
+ * Replay `AffiliateRegistered` events to enumerate every affiliate the
+ * singleton has onboarded. Pass `fromBlock` (the singleton's deploy block) to
+ * bound the scan; defaults to genesis. The live row (fees, paused) should then
+ * be read via {@link readAffiliateConfig} — the event only captures the
+ * registration-time snapshot.
  */
-export async function readProxyVersionLabel(
+export async function fetchAffiliates(
   client: PublicClient,
-  proxy: Address,
-): Promise<string | undefined> {
-  try {
-    // MUST use the Sponsored ABI — `version()` is declared on V2Sponsored
-    // only (V2 base doesn't have it). Using the V2 ABI would make viem
-    // reject the call client-side ("function not found in ABI") and we'd
-    // never even hit the chain, so every proxy would look standard.
-    return (await client.readContract({
-      abi: IntuitionFeeProxyV2SponsoredABI as any,
-      address: proxy,
-      functionName: 'version',
-    })) as string
-  } catch {
-    // V2 standard proxies revert on-chain (function selector not found).
-    // That's the signal used by callers to classify the channel.
-    return undefined
-  }
-}
-
-/** Sponsor pool balance (sponsored-family proxies only). */
-export async function readSponsorPool(
-  client: PublicClient,
-  proxy: Address,
-): Promise<bigint | undefined> {
-  try {
-    return (await client.readContract({
-      abi: IntuitionFeeProxyV2SponsoredABI as any,
-      address: proxy,
-      functionName: 'sponsorPool',
-    })) as bigint
-  } catch {
-    return undefined
-  }
-}
-
-/** Sponsored-only aggregate metrics. */
-export async function readSponsoredMetrics(
-  client: PublicClient,
-  proxy: Address,
-): Promise<SponsoredMetrics | undefined> {
-  try {
-    const [a, b, c] = (await client.readContract({
-      abi: IntuitionFeeProxyV2SponsoredABI as any,
-      address: proxy,
-      functionName: 'getSponsoredMetrics',
-    })) as [bigint, bigint, bigint]
-    return {
-      sponsoredDeposits: a,
-      sponsoredVolume: b,
-      uniqueSponsoredReceivers: c,
-    }
-  } catch {
-    return undefined
-  }
-}
-
-/** Registered version labels + current default + current + pending proxy admin.
- *
- * Hybrid dispatch: Multicall3 with `allowFailure: true` on chains that
- * support it (per-field revert tolerant — older impls missing
- * `pendingProxyAdmin` don't break the read), parallel per-field reads
- * otherwise. Both return identical shape.
- */
-export async function readProxyVersions(
-  client: PublicClient,
-  proxy: Address,
-): Promise<{
-  versions: readonly `0x${string}`[]
-  defaultVersion: `0x${string}` | undefined
-  proxyAdmin: Address | undefined
-  pendingProxyAdmin: Address | undefined
-}> {
-  const abi = IntuitionVersionedFeeProxyABI as any
-  const contracts = [
-    { abi, address: proxy, functionName: 'getVersions' },
-    { abi, address: proxy, functionName: 'getDefaultVersion' },
-    { abi, address: proxy, functionName: 'proxyAdmin' },
-    { abi, address: proxy, functionName: 'pendingProxyAdmin' },
-  ] as const
-
-  try {
-    const [versions, defaultVersion, proxyAdmin, pendingProxyAdmin] =
-      await client.multicall({ allowFailure: true, contracts: contracts as any })
-    return {
-      versions: versions.status === 'success' ? (versions.result as readonly `0x${string}`[]) : [],
-      defaultVersion: defaultVersion.status === 'success' ? (defaultVersion.result as `0x${string}`) : undefined,
-      proxyAdmin: proxyAdmin.status === 'success' ? (proxyAdmin.result as Address) : undefined,
-      pendingProxyAdmin: pendingProxyAdmin.status === 'success' ? (pendingProxyAdmin.result as Address) : undefined,
-    }
-  } catch {
-    // Fallback — no Multicall3 on this chain. Per-field try-catch so a
-    // single-field revert doesn't poison the whole read.
-    const safe = <T>(p: Promise<T>): Promise<T | undefined> => p.catch(() => undefined)
-    const [versions, defaultVersion, proxyAdmin, pendingProxyAdmin] = await Promise.all([
-      safe(client.readContract(contracts[0] as any) as Promise<readonly `0x${string}`[]>),
-      safe(client.readContract(contracts[1] as any) as Promise<`0x${string}`>),
-      safe(client.readContract(contracts[2] as any) as Promise<Address>),
-      safe(client.readContract(contracts[3] as any) as Promise<Address>),
-    ])
-    return {
-      versions: versions ?? [],
-      defaultVersion,
-      proxyAdmin,
-      pendingProxyAdmin,
-    }
-  }
+  feeProxy: Address,
+  fromBlock: bigint = 0n,
+): Promise<AffiliateRegistration[]> {
+  const logs = await client.getLogs({
+    address: feeProxy,
+    event: getAbiItem({ abi: FeeProxyABI, name: 'AffiliateRegistered' }) as any,
+    fromBlock,
+    toBlock: 'latest',
+  })
+  return logs.map((log: any) => ({
+    affiliate: log.args.affiliate as Address,
+    feeRecipient: log.args.feeRecipient as Address,
+    fees: log.args.fees as FeeConfig,
+    registrationFee: log.args.registrationFee as bigint,
+    blockNumber: log.blockNumber as bigint,
+    txHash: log.transactionHash as Hash,
+  }))
 }

@@ -1,24 +1,24 @@
 import type { Address } from 'viem'
-import { useAdmins } from './useProxy'
-import { useSafeStatuses } from './useSafeStatus'
+import { useSafeStatus } from './useSafeStatus'
 
 /**
- * Find the first Safe address in a proxy's admins list. Used by panels
- * to decide whether to surface a "Propose via Safe" path next to (or
- * instead of) the direct EOA write.
+ * Detect whether the connected admin account is a Gnosis Safe. When it is,
+ * admin actions are proposed through the Safe (propose + co-sign in Den)
+ * instead of being sent as a direct EOA transaction.
  *
- * Returns `safe = undefined` when no admin in the list resolves to a
- * known Safe singleton. Multiple Safes in the list are rare; we take
- * the first match — a future iteration can offer a picker if needed.
+ * Returns `safe = undefined` when the account is an EOA / generic contract /
+ * still detecting.
  */
-export function useSafeAdmin(proxy: Address | undefined): {
+export function useSafeAdmin(account: Address | undefined): {
   safe: Address | undefined
+  isSafe: boolean
   isLoading: boolean
 } {
-  const { admins, isLoading } = useAdmins(proxy)
-  const statuses = useSafeStatuses(admins)
-
-  const safe = admins.find((addr) => statuses[addr.toLowerCase()]?.kind === 'safe')
-
-  return { safe, isLoading }
+  const status = useSafeStatus(account)
+  const isSafe = status.kind === 'safe'
+  return {
+    safe: isSafe ? account : undefined,
+    isSafe,
+    isLoading: status.kind === 'unknown' && Boolean(account),
+  }
 }

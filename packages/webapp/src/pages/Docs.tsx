@@ -1,76 +1,45 @@
-import { useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
-
-import {
-  CANONICAL_VERSIONS,
-  listVersionsByFamily,
-  type NetworkName,
-  type ProxyFamily,
-} from '@intuition-fee-proxy/sdk'
 
 type SectionId =
   | 'overview'
-  | 'architecture'
+  | 'affiliate-model'
   | 'call-flow'
-  | 'proxy-vs-impl'
-  | 'pinning'
-  | 'sponsoring'
-  | 'admin-rotation'
+  | 'approvals'
+  | 'fees-caps'
+  | 'refunds'
   | 'safe-admin'
-  | 'governance'
-  | 'primitives'
-  | 'events'
-  | 'factory'
   | 'integration'
-  | 'workflow'
-  | 'golden-rules'
 
 const GROUPS = [
   {
     label: 'Introduction',
     items: [
       { id: 'overview' as SectionId, label: 'Overview' },
-      { id: 'architecture' as SectionId, label: 'Architecture' },
+      { id: 'affiliate-model' as SectionId, label: 'Affiliate model' },
     ],
   },
   {
     label: 'Concepts',
     items: [
       { id: 'call-flow' as SectionId, label: 'Call flow' },
-      { id: 'proxy-vs-impl' as SectionId, label: 'Proxy vs. implementation' },
-      { id: 'pinning' as SectionId, label: 'Pinning to a version' },
-      { id: 'sponsoring' as SectionId, label: 'Sponsoring' },
+      { id: 'approvals' as SectionId, label: 'MultiVault approvals' },
+      { id: 'fees-caps' as SectionId, label: 'Fees & caps' },
+      { id: 'refunds' as SectionId, label: 'Refunds' },
     ],
   },
   {
-    label: 'Security',
+    label: 'Operations',
     items: [
-      { id: 'admin-rotation' as SectionId, label: 'Admin rotation' },
-      { id: 'safe-admin' as SectionId, label: 'Safe multisig admin' },
-      { id: 'governance' as SectionId, label: 'Governance' },
-    ],
-  },
-  {
-    label: 'Reference',
-    items: [
-      { id: 'primitives' as SectionId, label: 'Primitives' },
-      { id: 'events' as SectionId, label: 'Events' },
-      { id: 'factory' as SectionId, label: 'Factory' },
+      { id: 'safe-admin' as SectionId, label: 'Admin & roles via Safe' },
       { id: 'integration' as SectionId, label: 'SDK integration' },
-    ],
-  },
-  {
-    label: 'Ship a new version',
-    items: [
-      { id: 'workflow' as SectionId, label: 'Workflow' },
-      { id: 'golden-rules' as SectionId, label: 'Golden rules' },
     ],
   },
 ] as const
 
-const ALL_ITEMS: ReadonlyArray<{ id: SectionId; label: string }> =
-  GROUPS.flatMap((g) => g.items.map((i) => ({ id: i.id, label: i.label })))
-
+const ALL_ITEMS: ReadonlyArray<{ id: SectionId; label: string }> = GROUPS.flatMap(
+  (g) => g.items.map((i) => ({ id: i.id, label: i.label })),
+)
 const ALL_IDS: ReadonlyArray<SectionId> = ALL_ITEMS.map((i) => i.id)
 
 export default function DocsPage() {
@@ -126,34 +95,20 @@ function SectionContent({ id }: { id: SectionId }) {
   switch (id) {
     case 'overview':
       return <Overview />
-    case 'architecture':
-      return <Architecture />
+    case 'affiliate-model':
+      return <AffiliateModel />
     case 'call-flow':
       return <CallFlow />
-    case 'proxy-vs-impl':
-      return <ProxyVsImpl />
-    case 'pinning':
-      return <Pinning />
-    case 'sponsoring':
-      return <Sponsoring />
-    case 'admin-rotation':
-      return <AdminRotation />
+    case 'approvals':
+      return <Approvals />
+    case 'fees-caps':
+      return <FeesCaps />
+    case 'refunds':
+      return <Refunds />
     case 'safe-admin':
       return <SafeAdmin />
-    case 'governance':
-      return <Governance />
-    case 'primitives':
-      return <Primitives />
-    case 'events':
-      return <Events />
-    case 'factory':
-      return <FactoryReference />
     case 'integration':
       return <Integration />
-    case 'workflow':
-      return <Workflow />
-    case 'golden-rules':
-      return <GoldenRules />
   }
 }
 
@@ -162,41 +117,26 @@ function SectionFooter({ id }: { id: SectionId }) {
   const prev = idx > 0 ? ALL_IDS[idx - 1] : null
   const next = idx < ALL_IDS.length - 1 ? ALL_IDS[idx + 1] : null
   if (!prev && !next) return null
-
-  const labelOf = (sectionId: SectionId): string =>
-    ALL_ITEMS.find((i) => i.id === sectionId)?.label ?? ''
-
+  const labelOf = (s: SectionId) => ALL_ITEMS.find((i) => i.id === s)?.label ?? ''
   return (
     <div className="mt-16 flex items-center justify-between gap-4 border-t border-line pt-6 text-sm">
       {prev ? (
-        <Link
-          to={`/docs/${prev}`}
-          className="group flex flex-col items-start text-muted hover:text-ink transition-colors"
-        >
-          <span className="text-[11px] uppercase tracking-wider text-subtle">
-            Previous
-          </span>
-          <span>← {labelOf(prev)}</span>
+        <Link to={`/docs/${prev}`} className="text-muted hover:text-ink transition-colors">
+          ← {labelOf(prev)}
         </Link>
       ) : (
         <span />
       )}
       {next && (
-        <Link
-          to={`/docs/${next}`}
-          className="group flex flex-col items-end text-muted hover:text-ink transition-colors"
-        >
-          <span className="text-[11px] uppercase tracking-wider text-subtle">
-            Next
-          </span>
-          <span>{labelOf(next)} →</span>
+        <Link to={`/docs/${next}`} className="text-muted hover:text-ink transition-colors">
+          {labelOf(next)} →
         </Link>
       )}
     </div>
   )
 }
 
-// ============ Section content ============
+// ---- shared atoms ----
 
 function PageHeader({ kicker, title }: { kicker: string; title: string }) {
   return (
@@ -214,9 +154,7 @@ function P({ children }: { children: ReactNode }) {
 }
 
 function H3({ children }: { children: ReactNode }) {
-  return (
-    <h3 className="text-sm font-semibold text-ink mt-8 mb-3">{children}</h3>
-  )
+  return <h3 className="text-sm font-semibold text-ink mt-8 mb-3">{children}</h3>
 }
 
 function Code({ children }: { children: ReactNode }) {
@@ -231,13 +169,7 @@ function Block({ children }: { children: ReactNode }) {
   )
 }
 
-function Callout({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
+function Callout({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="my-6 rounded-lg border-l-4 border-l-brand border border-line bg-surface p-4 text-sm">
       <div className="font-medium text-ink mb-1">{title}</div>
@@ -246,1882 +178,197 @@ function Callout({
   )
 }
 
-// ---- Overview ----
+// ---- sections ----
 
 function Overview() {
   return (
-    <div className="space-y-14">
-      <div className="space-y-4">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-brand">
-          Introduction
-        </div>
-        <h1 className="text-4xl font-semibold tracking-tight text-ink leading-[1.05]">
-          A versioned fee layer for the{' '}
-          <span className="text-brand">Intuition MultiVault</span>.
-        </h1>
-        <p className="text-lg text-muted leading-relaxed max-w-xl">
-          Deploy a thin, upgradeable proxy. Charge fees. Ship new logic.
-          Never force users off the version they trust.
-        </p>
-      </div>
-
-      <section className="space-y-3">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-subtle">
-          Four principles
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Principle
-            title="Versioned"
-            body={
-              <>
-                Each new version is added to the registry — it never replaces
-                the previous one. Users who pinned an older version keep
-                running it. The default version is chosen by the admin.
-                Implements{' '}
-                <a
-                  href="https://eips.ethereum.org/EIPS/eip-7936"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-brand underline decoration-brand/60 decoration-from-font hover:decoration-brand"
-                >
-                  ERC-7936
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    aria-hidden="true"
-                    className="-translate-y-px"
-                  >
-                    <path
-                      d="M7 17L17 7M17 7H9M17 7v8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </a>
-                .
-              </>
-            }
-          />
-          <Principle
-            title="Permissionless"
-            body="Anyone deploys — no allowlist, no gatekeeper. Just TRUST for gas and you have your own fee proxy."
-          />
-          <Principle
-            title="Sponsorable"
-            body="Admins top up a shared TRUST pool (as many times as needed). Users draw from it on normal calls, bounded by a per-call cap and a per-user daily claim limit."
-          />
-          <Principle
-            title="User-pinned"
-            body="Any user can route through a specific past version forever via executeAtVersion. Admin-independent trust."
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-subtle">
-          Two channels, one factory
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ChannelPreview
-            variant="fee"
-            name="Standard"
-            body="Users pay deposits and fees directly from their own wallet. Simplest path, ideal when your users already hold TRUST."
-          />
-          <ChannelPreview
-            variant="sponsor"
-            name="Sponsored"
-            body="Admins fund a shared TRUST pool (top-up any time). Users draw from it on normal calls with reduced or zero msg.value. Ideal for fiat-onboarded dApps."
-          />
-        </div>
-        <p className="text-xs text-subtle pt-1">
-          The channel is locked at deploy time. Pick before calling{' '}
-          <Code>createProxy</Code>.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-subtle">
-          Dive in
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NavCard
-            to="/docs/architecture"
-            kicker="Start here"
-            title="Architecture"
-            body="The full system — factory, admins, proxies, impl, MultiVault — with a Fee/Sponsor toggle. 5-minute read."
-          />
-          <NavCard
-            to="/docs/integration"
-            kicker="Reference"
-            title="SDK integration"
-            body="Ship it. Install, recipes, and the live canonical versions table."
-          />
-          <NavCard
-            to="/docs/call-flow"
-            kicker="Concepts"
-            title="Call flow + pinning"
-            body="How a deposit travels through delegatecall, and why versioning matters for user trust."
-          />
-          <NavCard
-            to="/docs/workflow"
-            kicker="Ship a new version"
-            title="Author workflow"
-            body="Writing, reviewing, deploying and publishing a new implementation as canonical."
-          />
-        </div>
-      </section>
+    <div className="space-y-5">
+      <PageHeader kicker="Introduction" title="Overview" />
+      <P>
+        FeeProxy is a single multi-tenant contract per network that sits in
+        front of the Intuition MultiVault. Any dApp builder registers once as an
+        affiliate, configures a fee schedule, and points their app at their
+        affiliate address. On every routed deposit or atom/triple creation the
+        proxy takes the affiliate&apos;s fee, pushes it to their fee recipient,
+        and forwards the rest to the MultiVault.
+      </P>
+      <P>
+        There is no per-dApp deployment, no upgradeable proxy, no fee pool, and
+        no withdraw step. The contract holds no affiliate balance: fees are
+        pushed at routing time.
+      </P>
     </div>
   )
 }
 
-// ---- Architecture ----
-
-function Architecture() {
-  const [channel, setChannel] = useState<'fee' | 'sponsor'>('fee')
-  const isFee = channel === 'fee'
-  const accentBorder = isFee ? 'border-brand/50' : 'border-[#e8a04a]/60'
-  const accentBg = isFee ? 'bg-brand/[0.06]' : 'bg-[#e8a04a]/[0.07]'
-  const accentText = isFee ? 'text-brand' : 'text-[#e8a04a]'
-
+function AffiliateModel() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Introduction" title="Architecture" />
+      <PageHeader kicker="Introduction" title="Affiliate model" />
       <P>
-        A proxy never runs in isolation. It sits inside a four-actor system:
-        a <b className="text-ink">factory</b> that deploys it, two{' '}
-        <b className="text-ink">admin</b> roles that configure it, an{' '}
-        <b className="text-ink">implementation</b> that holds the logic, and
-        the <b className="text-ink">MultiVault</b> that ultimately executes
-        the deposit. The channel picked at deploy time decides who pays:
-        the user, or a pool the admin has pre-funded.
+        Each wallet keys at most one affiliate row, keyed by its own address —{' '}
+        <Code>affiliate = msg.sender</Code> at registration. You manage your own
+        row; nobody else can.
       </P>
-
-      <div className="inline-flex rounded-lg border border-line bg-surface p-1 mt-2">
-        <ChannelToggle
-          active={isFee}
-          onClick={() => setChannel('fee')}
-          color="brand"
-        >
-          Fee proxy
-        </ChannelToggle>
-        <ChannelToggle
-          active={!isFee}
-          onClick={() => setChannel('sponsor')}
-          color="amber"
-        >
-          Sponsor proxy
-        </ChannelToggle>
-      </div>
-
-      <H3>Deploy time</H3>
+      <H3>Register</H3>
       <P>
-        Anyone can deploy a proxy; there is no gatekeeper. The factory is a
-        single permissionless contract — it clones the proxy bytecode,
-        points it at the channel-specific implementation, and assigns the
-        caller-supplied admins.
+        Call <Code>registerAffiliate(FeeConfig fees, address feeRecipient)</Code>{' '}
+        and send exactly the current <Code>registrationFee</Code> in native
+        TRUST (forwarded to the protocol treasury).
       </P>
-      <div className="flex flex-col items-stretch space-y-2 my-4">
-        <ArchNode title="Admin wallet or Safe" subtitle="calls createProxy(...)" />
-        <ArrowDown />
-        <ArchNode
-          title="IntuitionFeeProxyFactory"
-          subtitle="clones the proxy · wires the channel impl · emits ProxyCreated"
-        />
-        <ArrowDown />
-        <ArchNode
-          title={isFee ? 'Fee proxy' : 'Sponsor proxy'}
-          subtitle={
-            isFee
-              ? 'ABI-clean standard V2 implementation'
-              : 'V2Sponsored implementation — adds a shared TRUST pool'
-          }
-          borderClass={accentBorder}
-          bgClass={accentBg}
-          titleClass={accentText}
-        />
-      </div>
-
-      <H3>Runtime — transaction flow</H3>
+      <H3>Manage</H3>
       <P>
-        The proxy keeps two storage compartments: its own (version registry,
-        proxy admin) in an ERC-7201 namespaced slot, and the
-        implementation&apos;s (fees, metrics, admins — plus the sponsor pool
-        in the sponsored channel) in low slots. Every call arrives at the
-        proxy and is <Code>delegatecall</Code>ed to the selected version.
+        <Code>updateAffiliateFees(FeeConfig)</Code> and{' '}
+        <Code>updateFeeRecipient(address)</Code> update your row. A protocol
+        admin can pause/unpause your affiliate; while paused, routing through
+        your address reverts.
       </P>
-      <div className="flex flex-col items-stretch space-y-2 my-4">
-        <ArchNode
-          title="User"
-          subtitle={
-            isFee
-              ? 'sends deposit() with msg.value = amount + fee'
-              : 'sends deposit() with reduced or zero msg.value — the pool adds up to maxClaimPerTx to cover the gap'
-          }
-        />
-        <ArrowDown />
-        <ArchNode
-          title={isFee ? 'Fee proxy' : 'Sponsor proxy'}
-          subtitle={
-            isFee
-              ? 'keeps fixed + % fee in accumulatedFees · delegatecall default version'
-              : 'draws at most maxClaimPerTx from sponsorPool per call · per-user caps maxClaimsPerWindow + maxClaimVolumePerWindow over claimWindowSeconds · delegatecall default version'
-          }
-          borderClass={accentBorder}
-          bgClass={accentBg}
-          titleClass={accentText}
-        />
-        <ArrowDown />
-        <ArchNode
-          title="MultiVault"
-          subtitle="executes the deposit · mints shares to the user"
-        />
-      </div>
-
-      <H3>Actors</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Actor
-          term="Factory"
-          desc="Single contract per chain. Holds the canonical standard + sponsored implementation addresses the project owner can bump via setImplementation / setSponsoredImplementation. Never sees user funds."
-        />
-        <Actor
-          term="Proxy"
-          desc={
-            isFee
-              ? 'The contract every user interacts with. Routes deposits through the current default version, or through any pinned version via executeAtVersion. Accumulates fees in accumulatedFees.'
-              : 'Same router as the fee proxy, plus a shared sponsorPool admins top up through fundPool (callable as many times as needed). User entry points (deposit, createAtoms, …) draw from the pool transparently when the user calls them with reduced or zero msg.value.'
-          }
-        />
-        <Actor
-          term="Fee admins (whitelisted)"
-          desc={
-            isFee
-              ? 'Multiple addresses. Configure fixed + percentage fees, withdraw accumulated fees to any address, rotate the whitelist. Cannot touch the proxy-admin surface.'
-              : 'Same fee admin role, plus the sponsor surface: fundPool, reclaimFromPool, setClaimLimits. withdraw is invariant-checked so it stays limited to accumulatedFees and leaves the sponsorPool untouched.'
-          }
-        />
-        <Actor
-          term="Proxy admin (single address — use a Safe)"
-          desc="Single-slot role (one address at a time). For production, put a Gnosis Safe multisig here — the Safe handles N signers / threshold / signer rotation internally, so you get 'multi-human proxyAdmin' without the contract knowing anything about it. Owns the version registry: registerVersion / setDefaultVersion / 2-step grant via transferProxyAdmin → pending target calls acceptProxyAdmin. Intentionally disjoint from fee admins — compromise of one does not cascade to the other."
-        />
-        <Actor
-          term="Implementation"
-          desc={
-            isFee
-              ? 'Stateless logic contract (IntuitionFeeProxyV2, V2.1, …). Never runs standalone — only via delegatecall from a proxy. New versions inherit from the previous one and never reorder storage.'
-              : 'IntuitionFeeProxyV2Sponsored — same pattern as V2, but adds a shared sponsor pool, pool accounting and per-user rate limits. User entry points override the V2 ones to draw from the pool transparently. Upgrades stay append-only within the sponsored family.'
-          }
-        />
-        <Actor
-          term="MultiVault"
-          desc="Intuition core. The proxy is a pure front; every deposit is ultimately executed here, and the resulting shares are minted to the user who signed the tx — the proxy never reassigns ownership."
-        />
-      </dl>
-
-      <Callout title="Admin rotation + governance live in their own pages">
-        Role 1 / Role 2 rotation mechanics and the 3-level "who can push
-        an impl" model each have a dedicated page under{' '}
-        <b>Security</b> in the sidebar — kept here as pointers so
-        Architecture stays focused on runtime mechanics.
-      </Callout>
-
-      <H3>{isFee ? 'Fee economics' : 'Pool economics'}</H3>
-      {isFee ? (
-        <>
-          <P>
-            Every deposit carries two fees: a fixed amount in wei
-            (<Code>depositFixedFee</Code>) and a percentage of the
-            post-fixed-fee amount (<Code>depositPercentageFee</Code>, basis
-            points, hard-capped at 10%). Both accumulate inside the proxy.
-            Admins pull them out on demand via{' '}
-            <Code>withdraw(to, amount)</Code> or{' '}
-            <Code>withdrawAll(to)</Code>. No streaming, no escrow, no
-            external dependency.
-          </P>
-        </>
-      ) : (
-        <>
-          <P>
-            One shared <Code>sponsorPool</Code> funded by the admin via{' '}
-            <Code>fundPool</Code> (payable, re-callable anytime). Every
-            sponsored call consumes from the same pool, bounded by four
-            always-on per-user rate limits: <Code>maxClaimPerTx</Code>{' '}
-            (cap per call), <Code>maxClaimsPerWindow</Code> (pool-drawing
-            calls per user), <Code>maxClaimVolumePerWindow</Code>{' '}
-            (cumulative TRUST per user), all applied over a{' '}
-            <Code>claimWindowSeconds</Code> sliding window that the admin
-            sets (1h, 1 day, 1 week, …). The admin can{' '}
-            <Code>reclaimFromPool</Code> any unspent balance. Standard
-            fees (fixed + percentage) still apply on top — they accumulate
-            in <Code>accumulatedFees</Code> separately, and{' '}
-            <Code>withdraw</Code> is invariant-checked so it can never dip
-            into the pool.
-          </P>
-        </>
-      )}
-
-      <Callout title={isFee ? 'Need sponsorship later?' : 'Need a pure fee proxy?'}>
-        The channel is fixed at deploy time. Switching from fee to sponsored
-        (or the other way) requires deploying a fresh proxy. Pick the one
-        that matches your dApp&apos;s monetisation model before hitting{' '}
-        <Code>createProxy</Code>.
-      </Callout>
     </div>
   )
 }
-
-function ChannelToggle({
-  active,
-  onClick,
-  color,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  color: 'brand' | 'amber'
-  children: ReactNode
-}) {
-  const activeCls =
-    color === 'brand'
-      ? 'bg-brand/10 text-brand'
-      : 'bg-[#e8a04a]/10 text-[#e8a04a]'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-        active ? activeCls : 'text-muted hover:text-ink'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ArchNode({
-  title,
-  subtitle,
-  borderClass,
-  bgClass,
-  titleClass,
-}: {
-  title: string
-  subtitle: string
-  borderClass?: string
-  bgClass?: string
-  titleClass?: string
-}) {
-  return (
-    <div
-      className={`rounded-lg border p-4 transition-colors ${
-        borderClass ?? 'border-line'
-      } ${bgClass ?? 'bg-surface'}`}
-    >
-      <div className={`font-medium text-sm ${titleClass ?? 'text-ink'}`}>
-        {title}
-      </div>
-      <div className="mt-1 text-xs text-muted">{subtitle}</div>
-    </div>
-  )
-}
-
-function Actor({ term, desc }: { term: string; desc: ReactNode }) {
-  return (
-    <div className="px-5 py-4">
-      <dt className="text-sm font-medium text-ink">{term}</dt>
-      <dd className="mt-1 text-sm text-muted leading-relaxed">{desc}</dd>
-    </div>
-  )
-}
-
-// ---- Call flow ----
 
 function CallFlow() {
   return (
     <div className="space-y-5">
       <PageHeader kicker="Concepts" title="Call flow" />
       <P>
-        Every call flows through three hops. The wallet sends a transaction
-        to the proxy; the proxy{' '}
-        <Code>delegatecall</Code>s the selected implementation, which
-        computes fees and forwards the remainder to the MultiVault. Fees
-        stay in the proxy contract, pullable by admins on demand.
+        A dApp routes a user&apos;s deposit through the singleton, naming the
+        affiliate. The proxy computes the fee, pushes it to the affiliate&apos;s
+        recipient, and forwards the remainder to the MultiVault, which mints the
+        position to the original user.
       </P>
-
-      <ArchitectureDiagram />
-
-      <H3>Two routing paths</H3>
+      <Block>{`registerAffiliate(fees, feeRecipient)   // once, by the dApp builder
+        |
+depositVia(affiliate, receiver, termId,  // per user deposit
+           curveId, grossAssets,
+           minShares, feeGuard)
+        |
+MultiVault.deposit(...)                  // position minted to receiver`}</Block>
       <P>
-        The proxy exposes the same Solidity ABI as a regular fee proxy —
-        users call <Code>deposit(...)</Code> or{' '}
-        <Code>createAtoms(...)</Code> as usual. Those calls hit the
-        fallback, which routes through the <em>default</em> version.
-      </P>
-      <P>
-        Advanced callers can pin to a specific past version by calling{' '}
-        <Code>executeAtVersion(label, data)</Code> directly. The proxy
-        looks up that label in its registry and{' '}
-        <Code>delegatecall</Code>s that implementation instead, ignoring
-        the current default. If the label was registered once, the
-        implementation at that address is immutable forever.
-      </P>
-
-      <H3>Where state lives</H3>
-      <P>
-        The proxy&apos;s own storage (version registry, proxy-admin) sits
-        in an ERC-7201-style namespaced slot so it can never collide with
-        the implementation&apos;s regular slot-0-onwards layout. The
-        implementation&apos;s storage — fees, admins, metrics — reads and
-        writes directly into the proxy&apos;s low slots via delegatecall.
-        That&apos;s what makes upgrades non-destructive.
+        The caller passes a <Code>FeeGuard {`{ maxFeeBps, maxFixedFee }`}</Code>{' '}
+        as front-run protection: if the affiliate&apos;s live fee exceeds the
+        guard at execution time, the tx reverts. Build it from the
+        affiliate&apos;s live fees with the SDK&apos;s <Code>buildFeeGuard</Code>.
       </P>
     </div>
   )
 }
 
-// ---- Proxy vs impl ----
-
-function ProxyVsImpl() {
+function Approvals() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Concepts" title="Proxy vs. implementation" />
+      <PageHeader kicker="Concepts" title="MultiVault approvals" />
       <P>
-        Two contracts, two roles. Keep them distinct in your head — most
-        mistakes around registering new versions come from conflating
-        them.
-      </P>
-
-      <H3>Implementation</H3>
-      <P>
-        The logic contract (
-        <Code>IntuitionFeeProxyV2</Code>,{' '}
-        <Code>IntuitionFeeProxyV21</Code>, etc.). Deployed once on the
-        chain, at a fixed address. Stateless on its own: it never runs
-        directly — only via <Code>delegatecall</Code> from a proxy.
-        That&apos;s why its storage layout has a{' '}
-        <Code>__gap</Code>-reserved tail: it will be interpreted in the
-        caller&apos;s slots.
-      </P>
-
-      <H3>Proxy</H3>
-      <P>
-        A thin router — <Code>IntuitionVersionedFeeProxy</Code>. Holds the
-        actual storage (fees, admins, metrics, version registry) and
-        forwards every call to the currently-selected implementation via{' '}
-        <Code>delegatecall</Code>. One proxy per deployment; each admin
-        owns theirs.
-      </P>
-
-      <H3>What goes in the version registry</H3>
-      <P>
-        When you register <Code>v2.1.0</Code> on your proxy, you store a
-        pointer to <b>an already-deployed raw implementation address</b>.
-        Never another proxy. Never a Solidity source string.
-      </P>
-      <Callout title="Common confusion: can I register another proxy?">
-        No. A proxy delegates to its own namespaced slot. Putting
-        proxy&nbsp;B as an implementation of proxy&nbsp;A means A would{' '}
-        <Code>delegatecall</Code> B, and B&apos;s assembly would reach for
-        its own layout — but it would read and write into A&apos;s
-        storage, corrupting both. Always register naked implementation
-        contracts.
-      </Callout>
-
-      <H3>Why not just redeploy the logic in place?</H3>
-      <P>
-        Because users relying on a reviewed version would silently start
-        running new, un-reviewed code. The version registry is the
-        cryptographic commitment that says: &ldquo;v2.0.0 points to this
-        exact bytecode, forever.&rdquo; A user who pinned it can trust it
-        across any admin action.
-      </P>
-    </div>
-  )
-}
-
-// ---- Pinning ----
-
-function Pinning() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Concepts" title="Pinning to a version" />
-      <P>
-        The default user experience is the simplest: make a standard call,
-        the proxy routes it through the current default version, the new
-        version ships automatically when admins register and promote it.
+        Routing pulls assets and mints on the MultiVault on behalf of the user
+        or receiver. Before a dApp can route for them, the relevant account must
+        approve the FeeProxy on the MultiVault.
       </P>
       <P>
-        Pinning is the escape hatch for users who want something stronger:
-        &ldquo;I reviewed v2.0.0, I don&apos;t care what defaults ship
-        next.&rdquo; Once a version label is registered, the
-        implementation it points to is immutable. Calling into it will
-        route through the exact bytecode you reviewed, for as long as the
-        proxy exists.
+        Check <Code>isApprovedToDeposit(receiver, proxy)</Code> and{' '}
+        <Code>isApprovedToCreate(creator, proxy)</Code> on the MultiVault; if
+        false, the user/receiver must approve the FeeProxy first or routing
+        reverts with <Code>FeeProxy_ProxyNotApprovedForDeposit</Code> /{' '}
+        <Code>…ForCreation</Code>.
       </P>
-
-      <H3>When to pin</H3>
-      <ul className="space-y-2 text-sm text-muted pl-4 list-disc marker:text-subtle">
-        <li>
-          You&apos;re an integrator and need a fixed behaviour for
-          downstream contracts to depend on.
-        </li>
-        <li>
-          You&apos;re a user who reviewed an implementation yourself and
-          doesn&apos;t want to re-review on every upgrade.
-        </li>
-        <li>
-          You want insulation against an admin-key compromise. If the
-          proxy admin&apos;s keys are stolen and the attacker registers a
-          malicious impl as the new default, pinned users keep routing
-          through the exact bytecode they chose and are never touched.
-        </li>
-      </ul>
-
-      <H3>How to pin in code</H3>
-      <Block>{`// viem example — deposit pinned to v2.0.0
-const depositData = encodeFunctionData({
-  abi: IntuitionFeeProxyV2ABI,
-  functionName: 'deposit',
-  args: [termId, curveId, minShares, maxFeeBps, maxFixedFee],
-})
-
-await walletClient.writeContract({
-  address: proxyAddress,
-  abi: IntuitionVersionedFeeProxyABI,
-  functionName: 'executeAtVersion',
-  args: [stringToHex('v2.0.0', { size: 32 }), depositData],
-  value: totalValue,
-})`}</Block>
-
-      <H3>What happens when the default moves</H3>
-      <P>
-        Nothing for pinned users. An admin can ship v2.1.0 and promote it,
-        or even register and promote v2.2.0 on top of that — the pinned
-        path keeps resolving <Code>v2.0.0</Code> to its original
-        implementation address. The proxy&apos;s storage keeps evolving
-        (fees, metrics, etc.) but the logic running over that storage is
-        always the one you chose.
-      </P>
-    </div>
-  )
-}
-
-// ---- Primitives ----
-
-function Primitives() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Reference" title="Primitives" />
-      <P>
-        The surface area of a fee proxy, grouped by who can call what.
-        Signatures are shortened — full types live in the SDK&apos;s ABI
-        exports.
-      </P>
-
-      <H3>End-user entry points</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="deposit(termId, curveId, minShares, maxFeeBps, maxFixedFee) payable"
-          desc="Deposit TRUST into a term. Proxy keeps a fixed + percentage fee (capped by your maxFeeBps / maxFixedFee — front-run protection against an admin bumping fees in the same block); forwards the remainder to the MultiVault on behalf of msg.sender."
-        />
-        <Primitive
-          term="createAtoms(data[], assets[], minShares[], curveId) payable"
-          desc="Create one or more atoms. Non-zero assets are immediately deposited into the new atom (each constrained by its `minShares[i]` slippage floor)."
-        />
-        <Primitive
-          term="createTriples(subjectIds[], predicateIds[], objectIds[], assets[], minShares[], curveId) payable"
-          desc="Create triples linking three existing terms. Optional deposit per triple, each gated by `minShares[i]`."
-        />
-        <Primitive
-          term="depositBatch(termIds[], curveIds[], assets[], minShares[]) payable"
-          desc="Batch version of deposit. Fees apply per entry."
-        />
-        <Primitive
-          term="executeAtVersion(version, data) payable"
-          desc="Pin a call to a specific registered version. Routes the embedded calldata through that exact implementation."
-        />
-      </dl>
-
-      <H3>Fee admins (whitelisted)</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="setDepositFixedFee(newFee)"
-          desc="Update the per-deposit fixed fee (in wei)."
-        />
-        <Primitive
-          term="setDepositPercentageFee(newFee)"
-          desc="Update the percentage fee in basis points. Hard-capped at MAX_FEE_PERCENTAGE = 1000 (10%) — an admin cannot push it higher. Constant on a given impl; only a fresh impl version registered on the versioned proxy can raise the cap, and existing proxies stay bounded forever."
-        />
-        <Primitive
-          term="setWhitelistedAdmin(admin, status)"
-          desc="Add or remove a fee admin. Cannot self-revoke the last admin."
-        />
-        <Primitive
-          term="withdraw(to, amount) / withdrawAll(to)"
-          desc="Pull accumulated fees to any address."
-        />
-      </dl>
-
-      <H3>Proxy admin (single address / Safe)</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="registerVersion(label, impl)"
-          desc="Append a new implementation to the registry. Label must be unique; impl must be deployed and have code."
-        />
-        <Primitive
-          term="setDefaultVersion(label)"
-          desc="Change which registered version handles fallback calls."
-        />
-        <Primitive
-          term="transferProxyAdmin(newAdmin)"
-          desc="Step 1 of a 2-step rotation. Sets pendingProxyAdmin but does NOT transfer powers. Calling again overwrites the pending candidate. Passing address(0) reverts."
-        />
-        <Primitive
-          term="acceptProxyAdmin()"
-          desc="Step 2 of the rotation. Must be called by the address currently set as pendingProxyAdmin — it promotes the caller to proxyAdmin. Prevents fat-fingered transfers to wrong / lost addresses."
-        />
-        <Primitive
-          term="pendingProxyAdmin() view"
-          desc="Returns the candidate awaiting acceptance, or address(0) if no transfer is pending."
-        />
-        <Primitive
-          term="setName(newName) / getName()"
-          desc="Optional human-readable label on the proxy. setName is proxy-admin only; getName is public. 32 bytes max."
-        />
-        <Primitive
-          term="getVersions() → bytes32[]"
-          desc="Public view. Full list of labels registered on this proxy, in registration order. Used by the webapp's VersionsPanel to render the directory."
-        />
-        <Primitive
-          term="getDefaultVersion() → bytes32"
-          desc="Public view. Label of the impl that handles non-pinned calls. Flipped by setDefaultVersion."
-        />
-      </dl>
-
-      <H3>Sponsored channel only (V2Sponsored)</H3>
-      <P>
-        These functions exist only on proxies deployed through the
-        Sponsored channel. Calling them on a Standard proxy reverts with
-        &quot;function not found&quot;.
-      </P>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="fundPool() payable"
-          desc="Fee-admin only. Adds msg.value to the shared sponsorPool. Any user of the proxy can then draw from it on their next deposit."
-        />
-        <Primitive
-          term="reclaimFromPool(amount, to)"
-          desc="Fee-admin only. Pulls unspent TRUST out of the pool to the recipient of your choice."
-        />
-        <Primitive
-          term="setClaimLimits(maxPerTx, maxPerWindow, maxVolumePerWindow, windowSec)"
-          desc="Fee-admin only. All four values must stay > 0 — no 'unlimited' escape. Defaults: 1 TRUST per call, 10 calls / 10 TRUST per 24h window per user."
-        />
-        <Primitive
-          term="sponsorPool() → uint256"
-          desc="Current pool balance."
-        />
-        <Primitive
-          term="getClaimStatus(user) → (claimsUsed, volumeUsed, windowResetsAt)"
-          desc="How many pool-funded draws and how much cumulative TRUST the user has consumed in the current window, and when the window resets."
-        />
-        <Primitive
-          term="getSponsoredMetrics() → (deposits, volume, uniqueReceivers)"
-          desc="Aggregate counters bumped on every pool-funded draw."
-        />
-      </dl>
-
-      <H3>Metrics (read-only, both channels)</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="getMetrics() → ProxyMetrics"
-          desc="Aggregate tuple: atoms, triples, deposits, volume, unique users, last-activity block."
-        />
-        <Primitive
-          term="totalFeesCollectedAllTime() → uint256"
-          desc="Monotonic counter, never decreases. Useful to chart cumulative fee accrual independently of current accumulatedFees (which drops on withdraw)."
-        />
-        <Primitive
-          term="hasInteracted(user)"
-          desc="Whether an address has ever hit the proxy. Feeds totalUniqueUsers."
-        />
-        <Primitive
-          term="version() → string (V2.1+ only)"
-          desc="Returns the running impl's label (e.g. 'v2.1.0-sponsored'). Absent on V2 base — reverts with 'function not found'. Off-chain callers use the presence/value as a cheap probe for which impl the proxy is currently delegating to."
-        />
-      </dl>
-
-    </div>
-  )
-}
-
-// ---- Admin rotation (Security) ----
-
-function AdminRotation() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Security" title="Admin rotation" />
-      <P>
-        Both admin roles are rotatable, but the mechanics differ on
-        purpose — the slower path covers the higher-impact role.
-      </P>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Actor
-          term="Role 1 — proxyAdmin (2-step)"
-          desc={
-            <>
-              Current admin calls <Code>transferProxyAdmin(newAdmin)</Code>,
-              which only sets <Code>pendingProxyAdmin</Code> — no powers
-              move. The target must then sign{' '}
-              <Code>acceptProxyAdmin()</Code> from their own wallet to
-              finalise. Until then the outgoing admin keeps full powers
-              and can overwrite the pending candidate.
-            </>
-          }
-        />
-        <Actor
-          term="Role 2 — fee admins (instant, N addresses)"
-          desc={
-            <>
-              Whitelist-style. <Code>setWhitelistedAdmin(addr, true/false)</Code>{' '}
-              adds or removes in a single tx. Any fee admin can grant or
-              revoke any other — except the last one cannot self-revoke.
-              Multiple fee admins can coexist; all share the same powers.
-            </>
-          }
-        />
-        <Actor
-          term="Convenience — Grant both roles"
-          desc={
-            <>
-              When a single wallet holds both roles and wants to hand the
-              whole proxy off, the webapp exposes a combined flow that
-              fires <Code>setWhitelistedAdmin(new, true)</Code> then{' '}
-              <Code>transferProxyAdmin(new)</Code> back-to-back (2 sigs,
-              1 click). The target still has to{' '}
-              <Code>acceptProxyAdmin()</Code> from their side; acceptance
-              is auto-detected via the on-chain state poll. The outgoing
-              admin optionally revokes themselves as fee admin from the
-              new owner&apos;s wallet afterwards.
-            </>
-          }
-        />
-      </dl>
-      <Callout title="Disjoint roles by design">
-        A compromise of one role does not cascade into the other. Keep
-        fee admins (money flow) and the proxyAdmin (logic upgrades) on
-        different wallets / Safes whenever possible.
+      <Callout title="Prerequisite for dApp integrators">
+        Surface the approval step in your own UI before the first routed
+        deposit. It is a one-time MultiVault approval per account, not a FeeProxy
+        concern.
       </Callout>
     </div>
   )
 }
 
-// ---- Safe multisig admin (Security) ----
+function FeesCaps() {
+  return (
+    <div className="space-y-5">
+      <PageHeader kicker="Concepts" title="Fees & caps" />
+      <P>
+        A fee schedule is{' '}
+        <Code>{`FeeConfig { depositBps, creationBps, depositFixedFee, creationFixedFee }`}</Code>.
+        bps use a base of 10000 (so 250 = 2.5%); fixed fees are in TRUST wei. The
+        per-call fee is <Code>grossAssets * bps / 10000 + fixedFee</Code>.
+      </P>
+      <P>
+        Protocol admins set global maxima: <Code>maxBps</Code> and{' '}
+        <Code>maxFixedFee</Code>. Registration or a fee update reverts if any
+        configured value exceeds its cap.
+      </P>
+    </div>
+  )
+}
+
+function Refunds() {
+  return (
+    <div className="space-y-5">
+      <PageHeader kicker="Concepts" title="Refunds" />
+      <P>
+        When a routed call sends more native value than required, the surplus is
+        refunded. The proxy attempts a push refund to the user; if that fails
+        (e.g. a contract receiver that rejects value) the amount is credited as
+        a pull-fallback.
+      </P>
+      <P>
+        A user reads <Code>pendingRefund(user)</Code> and claims it with{' '}
+        <Code>claimRefund()</Code> or <Code>claimRefundTo(recipient)</Code>.
+      </P>
+    </div>
+  )
+}
 
 function SafeAdmin() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Security" title="Safe multisig admin" />
+      <PageHeader kicker="Operations" title="Admin & roles via Safe" />
       <P>
-        Both admin roles accept a Gnosis Safe address — there is no
-        contract-level distinction between an EOA admin and a Safe
-        admin. The benefit is operational: a Safe replaces a single
-        private key with an N-of-M multisig, so a key loss or
-        compromise no longer drains your admin role.
+        The singleton uses OpenZeppelin AccessControl with two roles:{' '}
+        <Code>DEFAULT_ADMIN_ROLE</Code> (global caps, registration fee,
+        affiliate unpause, role grants) and <Code>PAUSER_ROLE</Code> (global
+        pause and per-affiliate pause). The Admin page gates each control on the
+        connected wallet&apos;s role.
       </P>
+      <H3>Safe-managed admin</H3>
       <P>
-        On Intuition mainnet (chain id 1155), Safes are deployed by{' '}
-        <a
-          href="https://onchainden.com"
-          target="_blank"
-          rel="noreferrer"
-          className="text-brand underline decoration-brand/60 hover:decoration-brand"
-        >
-          Den
-        </a>{' '}
-        — they host the canonical Safe v1.3.0 L2 contracts plus a
-        whitelabel UI at{' '}
-        <Code>safe.onchainden.com/home?safe=int:&lt;addr&gt;</Code>.
-        There is no Safe support on Intuition testnet — the testnet
-        path stays on EOA admins.
+        When the connected admin is a Gnosis Safe (Intuition mainnet, via Den),
+        the Admin page proposes each action through the Safe propose / co-sign /
+        execute flow instead of sending a direct transaction. An EOA admin sends
+        directly. Move the admin role to a Safe before production: a single key
+        controlling global protocol config is high risk.
       </P>
-
-      <H3>The three deployment patterns</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Actor
-          term="Pure Safe — most rigorous"
-          desc={
-            <>
-              Pass <Code>[safeAddress]</Code> as <Code>initialAdmins</Code>{' '}
-              when calling <Code>Factory.createProxy</Code>. The Safe is
-              the sole admin from genesis. Every admin op (even setting
-              the initial fee) requires multisig quorum. Use when the
-              proxy goes straight to production.
-            </>
-          }
-        />
-        <Actor
-          term="EOA + Safe — pragmatic"
-          desc={
-            <>
-              Pass <Code>[yourEOA, safeAddress]</Code>. Both addresses
-              hold the role from day one. The EOA is fast for dev / iter
-              / setup; the Safe is wired for handover. When you&apos;re
-              ready, the Safe revokes the EOA via a single proposal.
-              <strong className="text-ink">Recommended for new proxies.</strong>
-            </>
-          }
-        />
-        <Actor
-          term="EOA-only, migrate later"
-          desc={
-            <>
-              Pass <Code>[yourEOA]</Code>. Use{' '}
-              <Code>bun safe:rotate-admin</Code> later to grant the Safe
-              and propose the EOA revoke in one shot. Only useful when
-              the proxy already exists or was deployed by someone else.
-            </>
-          }
-        />
-      </dl>
-
-      <H3>What you see in the webapp</H3>
-      <P>
-        On any Proxy detail page, the <strong>Admins</strong> tab tags
-        each address with a small badge:
-      </P>
-      <ul className="text-sm text-muted leading-relaxed list-disc list-inside space-y-1.5">
-        <li>
-          <strong className="text-emerald-400">SAFE</strong> — detected
-          Gnosis Safe (cliquable: opens the Den UI for that Safe)
-        </li>
-        <li>
-          <strong className="text-amber-400">EOA</strong> — externally
-          owned account, single key
-        </li>
-        <li>
-          <strong className="text-subtle">CONTRACT</strong> — smart
-          contract that isn&apos;t a recognized Safe singleton
-        </li>
-      </ul>
-      <P>
-        Above the proxy admin (Role 1), an inline banner escalates by
-        context: green &ldquo;Safe-managed&rdquo; if it&apos;s a Safe,
-        amber &ldquo;fine for dev&rdquo; for an EOA on testnet, and
-        red &ldquo;high risk&rdquo; for an EOA on mainnet.
-      </P>
-
-      <H3>Performing admin ops via the Safe</H3>
-      <P>
-        Once a Safe holds the admin role, any admin op (changing fees,
-        rotating admins, upgrading the implementation, etc.) goes
-        through the standard Safe propose/co-sign/execute flow. The
-        repo ships a CLI that wraps every supported op:
-      </P>
-      <pre className="rounded-md border border-line bg-canvas p-3 text-xs font-mono leading-relaxed overflow-x-auto text-muted">
-        <code>{`# Propose (one Safe owner runs this)
-bun safe:tx set-deposit-fixed-fee \\
-  --proxy 0xPROXY --value 100 \\
-  --safe 0xSAFE --signer env
-
-# Co-sign (other owners — via CLI or directly in Den UI)
-bun safe:tx confirm --hash 0xSAFETXHASH --safe 0xSAFE
-
-# Execute once quorum is reached (anyone)
-bun safe:tx execute --hash 0xSAFETXHASH --safe 0xSAFE
-
-# List pending proposals
-bun safe:tx list --safe 0xSAFE
-
-# One-shot rotation: EOA admin -> Safe admin
-bun safe:rotate-admin --proxy 0xPROXY --safe 0xSAFE --eoa 0xEOA --dry-run`}</code>
-      </pre>
-      <P>
-        <Code>bun safe:tx --help</Code> lists every available op
-        (5 V2 admin + 4 Factory owner + 1 UUPS upgrade). Set{' '}
-        <Code>PROPOSER_PK</Code> in your env to a Safe owner&apos;s
-        private key.
-      </P>
-
-      <Callout title="Full reference: SAFE_TX_RUNBOOK.md">
-        Procedures, dry-run guidance, fallback when Den is down, and
-        validation checklists live in <Code>SAFE_TX_RUNBOOK.md</Code>{' '}
-        at the repo root. The webapp covers what you see; the runbook
-        covers what you do.
+      <Callout title="No Safe support on testnet">
+        Intuition testnet has no Safe infrastructure — admin actions there are
+        EOA-only.
       </Callout>
     </div>
   )
 }
-
-// ---- Governance (Security) ----
-
-function Governance() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Security" title="Governance — who can push what" />
-      <P>
-        Three distinct levels of &ldquo;pushing&rdquo; an implementation.
-        Mixing them up is the single most common source of confusion —
-        worth reading carefully.
-      </P>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-[11px] font-medium uppercase tracking-wider text-subtle bg-canvas/60">
-              <th className="px-4 py-2.5">Level</th>
-              <th className="px-4 py-2.5">Who can do it</th>
-              <th className="px-4 py-2.5">Effect</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            <tr>
-              <td className="px-4 py-3 font-medium text-ink align-top">
-                Deploy an impl on-chain
-              </td>
-              <td className="px-4 py-3 text-muted align-top">Anyone</td>
-              <td className="px-4 py-3 text-muted align-top leading-relaxed">
-                Just a contract address with bytecode. Nobody runs it until
-                a proxy admin explicitly registers it. Permissionless,
-                inert by itself.
-              </td>
-            </tr>
-            <tr>
-              <td className="px-4 py-3 font-medium text-ink align-top">
-                Register an impl on a proxy
-              </td>
-              <td className="px-4 py-3 text-muted align-top">
-                The <Code>proxyAdmin</Code> of that specific proxy
-              </td>
-              <td className="px-4 py-3 text-muted align-top leading-relaxed">
-                Only that proxy gains access to the new impl — via{' '}
-                <Code>executeAtVersion</Code> once registered, or as the
-                runtime target after <Code>setDefaultVersion</Code>. All
-                other proxies are unaffected. No cross-proxy push possible.
-              </td>
-            </tr>
-            <tr>
-              <td className="px-4 py-3 font-medium text-ink align-top">
-                Publish in the canonical directory (<Code>CANONICAL_VERSIONS</Code>)
-              </td>
-              <td className="px-4 py-3 text-muted align-top">
-                Whoever has write access to the SDK repo (the team)
-              </td>
-              <td className="px-4 py-3 text-muted align-top leading-relaxed">
-                The impl shows up in the <Code>Register new version</Code>{' '}
-                dropdown of every hosted webapp running that SDK version.
-                <b className="text-ink"> Nothing on-chain changes.</b> Each
-                proxy admin still has to manually register + promote on
-                their own proxy for it to take effect.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <Callout title="No unilateral upgrades">
-        The team can ship and suggest a new version; it cannot force-push
-        it to anyone. This is the core decentralisation guarantee — a
-        compromised team key cannot cascade into a mass proxy upgrade.
-        Adoption is per-proxy, admin-driven, and opt-in.
-      </Callout>
-    </div>
-  )
-}
-
-// ---- Events (Reference) ----
-
-function Events() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Reference" title="Events" />
-      <P>
-        Observable markers emitted by the proxy on every write path.
-        Subscribe to these instead of polling view functions when
-        building indexers or dashboards.
-      </P>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="VersionUsed(bytes32 indexed version, address indexed user) — V2.1+ only"
-          desc="Emitted before fee accrual on every write-path call (deposit / depositBatch / createAtoms / createTriples). The single observable diff between V2 and V2.1 — lets indexers attribute tx volume to the exact impl that executed, and serves as proof-of-routing for the versioning demo."
-        />
-        <Primitive
-          term="MetricsUpdated(atoms, triples, deposits, volume, uniqueUsers, lastActivityBlock)"
-          desc="Emitted on every write-path call with the post-update counters. Single source of truth for dashboards — no need to subscribe to individual setter events."
-        />
-        <Primitive
-          term="FeesCollected(user, amount, operation)"
-          desc="Per-call fee attribution. Useful to reconstruct 'fees per user' time series off-chain."
-        />
-        <Primitive
-          term="AdminWhitelistUpdated(admin, status)"
-          desc="Used by the webapp's AdminsPanel to reconstruct the fee-admin list from logs. Status = true (granted) / false (revoked)."
-        />
-      </dl>
-    </div>
-  )
-}
-
-// ---- Factory reference ----
-
-function FactoryReference() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Reference" title="Factory (owner surface)" />
-      <P>
-        The Factory is UUPS-upgradeable. Its owner (a single address —
-        use a Safe for production) controls which canonical impl new
-        proxies ship with. Existing proxies are not affected — each
-        keeps its own registry and versions.
-      </P>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="createProxy(ethMultiVault, fixedFee, pctFee, admins[], name, channel) → address"
-          desc="Permissionless. Clones a fresh VersionedFeeProxy + delegatecalls init on the channel's current canonical impl. channel = 0 (standard) or 1 (sponsored)."
-        />
-        <Primitive
-          term="setImplementation(newImpl, newLabel)"
-          desc="Owner-only. Bumps the standard canonical impl used by future createProxy calls. Labels it so the new proxies record the version that shipped them."
-        />
-        <Primitive
-          term="setSponsoredImplementation(newImpl, newLabel)"
-          desc="Owner-only. Same as above, sponsored channel."
-        />
-        <Primitive
-          term="currentImplementation() / sponsoredImplementation() → address"
-          desc="Public views. The two impls a fresh proxy will be wired to, depending on channel."
-        />
-        <Primitive
-          term="getAllProxies() → address[]"
-          desc="Public view. Full list of proxies ever deployed through this Factory, in deployment order. Backs the Explore page."
-        />
-      </dl>
-      <Callout title="Owner power is bounded">
-        The owner can only change what a <em>future</em>{' '}
-        <Code>createProxy</Code> call will wire up. It cannot touch any
-        already-deployed proxy&apos;s registry, default version, fees,
-        admins, or pool. That authority stays with each proxy&apos;s own
-        admins.
-      </Callout>
-    </div>
-  )
-}
-
-// ---- Integration ----
 
 function Integration() {
-  const [network, setNetwork] = useState<NetworkName>('testnet')
-
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Reference" title="SDK integration" />
+      <PageHeader kicker="Operations" title="SDK integration" />
       <P>
-        <Code>@intuition-fee-proxy/sdk</Code> is the one dependency you
-        need to talk to the fee-proxy ecosystem from any TypeScript
-        codebase — webapps, Node scripts, Cloudflare Workers. It ships
-        ABIs, chain configs, the canonical version registry, and typed
-        readers that take a viem <Code>PublicClient</Code>.
-      </P>
-
-      <H3>Install</H3>
-      <Block>{`bun add @intuition-fee-proxy/sdk viem
-# or
-npm i @intuition-fee-proxy/sdk viem`}</Block>
-      <P>
-        <Code>viem</Code> is a peer dependency — bring your own version.
-      </P>
-
-      <H3>Setup a client</H3>
-      <Block>{`import { createPublicClient, http } from 'viem'
-import { INTUITION_TESTNET } from '@intuition-fee-proxy/sdk'
-
-const client = createPublicClient({
-  chain: INTUITION_TESTNET,
-  transport: http(),
-})`}</Block>
-
-      <H3>List every deployed proxy</H3>
-      <P>
-        Reads <Code>factory.getAllProxies()</Code>. Same data the Explore
-        tab renders.
+        <Code>@intuition-fee-proxy/sdk</Code> ships the <Code>FeeProxyABI</Code>,
+        addresses, chain configs, fee math, and viem-based readers.
       </P>
       <Block>{`import {
-  V2_ADDRESSES,
-  fetchAllProxies,
+  FeeProxyABI,
+  FEEPROXY_ADDRESSES,
+  readAffiliateConfig,
+  buildFeeGuard,
 } from '@intuition-fee-proxy/sdk'
 
-const proxies = await fetchAllProxies(
-  client,
-  V2_ADDRESSES.testnet.factory,
+const feeProxy = FEEPROXY_ADDRESSES.testnet
+const cfg = await readAffiliateConfig(client, feeProxy, affiliate)
+const guard = buildFeeGuard(
+  { bps: cfg.fees.depositBps, fixedFee: cfg.fees.depositFixedFee },
+  1000n, // tolerate a 10% bump
 )`}</Block>
-
-      <H3>Read a proxy&apos;s headline stats</H3>
-      <Block>{`import { readProxyStats } from '@intuition-fee-proxy/sdk'
-
-const stats = await readProxyStats(client, proxies[0])
-// { ethMultiVault, depositFixedFee, depositPercentageFee,
-//   accumulatedFees, totalFeesCollectedAllTime, adminCount }`}</Block>
-
-      <H3>Register a canonical version on your proxy</H3>
       <P>
-        As the proxy admin, adopt a new canonical implementation without
-        pasting its address by hand — pull it straight from the SDK.
+        In a wagmi app, import <Code>FeeProxyABI</Code> and use{' '}
+        <Code>useReadContract</Code> / <Code>useWriteContract</Code> directly —
+        the readers are for non-wagmi consumers.
       </P>
-      <Block>{`import { stringToHex } from 'viem'
-import {
-  IntuitionVersionedFeeProxyABI,
-  getLatestVersion,
-} from '@intuition-fee-proxy/sdk'
-
-const latest = getLatestVersion('testnet', 'standard')
-if (!latest) throw new Error('No canonical version published yet')
-
-await walletClient.writeContract({
-  abi: IntuitionVersionedFeeProxyABI,
-  address: yourProxyAddress,
-  functionName: 'registerVersion',
-  args: [stringToHex(latest.label, { size: 32 }), latest.impl],
-})`}</Block>
-
-      <H3>Fund a sponsor pool</H3>
-      <Block>{`import { parseEther } from 'viem'
-import { IntuitionFeeProxyV2SponsoredABI } from '@intuition-fee-proxy/sdk'
-
-await walletClient.writeContract({
-  abi: IntuitionFeeProxyV2SponsoredABI,
-  address: yourSponsoredProxyAddress,
-  functionName: 'fundPool',
-  args: [],
-  value: parseEther('25'),
-})`}</Block>
-
-      <H3>Call deposit() with front-run protection</H3>
-      <P>
-        V2&apos;s <Code>deposit(termId, receiver, amount, maxFeeBps,
-        maxFixedFee)</Code> takes two caller-supplied caps. If the
-        proxy admin bumps fees between the moment your user signs and
-        the moment the tx mines, the call reverts with{' '}
-        <Code>FeeExceedsCap</Code> instead of charging the inflated
-        fee. The SDK ships ergonomic helpers so you never have to
-        hard-code the bytecode <Code>MAX_FEE_PERCENTAGE</Code> /{' '}
-        <Code>MAX_FIXED_FEE</Code> (which would defeat the protection).
-      </P>
-      <Block>{`import { parseEther } from 'viem'
-import {
-  IntuitionFeeProxyV2ABI,
-  fetchLiveFees,
-  feeCapsExact,
-  feeCapsWithBuffer,
-} from '@intuition-fee-proxy/sdk'
-
-// 1. Snapshot live fees just before signing
-const live = await fetchLiveFees(client, yourProxyAddress)
-
-// 2. Pick a strategy:
-//    - exact = strict, any admin bump in the same block reverts
-const caps = feeCapsExact(live)
-//    - buffer = tolerate small re-pricing (here +10% bumpsallowed)
-// const caps = feeCapsWithBuffer(live, 1000n)
-
-// 3. Splice the caps into your deposit args
-await walletClient.writeContract({
-  abi: IntuitionFeeProxyV2ABI,
-  address: yourProxyAddress,
-  functionName: 'deposit',
-  args: [
-    termId,
-    receiver,
-    amount,
-    caps.maxFeeBps,
-    caps.maxFixedFee,
-  ],
-  value: amount + (amount * caps.maxFeeBps) / 10000n + caps.maxFixedFee,
-})`}</Block>
-      <Callout title="Why not just pass MAX_FEE_PERCENTAGE / MAX_FIXED_FEE?">
-        Hard-coding the bytecode maxima is opting out of front-run
-        protection. The deposit will always succeed even if the admin
-        spikes fees from 0% to 10% between sign and execute. Use these
-        helpers (or compute equivalent caps yourself) on every
-        deposit path.
-      </Callout>
-
-      <H3>Canonical versions</H3>
-      <P>
-        This table is sourced directly from the SDK&apos;s{' '}
-        <Code>CANONICAL_VERSIONS</Code> export — bumping the SDK package
-        is how maintainers publish a new recommended impl to every
-        consumer.
-      </P>
-      <div className="mt-3 flex gap-2">
-        <NetworkToggle
-          value={network}
-          onChange={setNetwork}
-          label="testnet"
-          target="testnet"
-        />
-        <NetworkToggle
-          value={network}
-          onChange={setNetwork}
-          label="mainnet"
-          target="mainnet"
-        />
-      </div>
-
-      <CanonicalVersionsTable network={network} family="standard" />
-      <CanonicalVersionsTable network={network} family="sponsored" />
-
-      <Callout title="Using an impl that isn't in this table?">
-        The <Code>registerVersion</Code> call is permissionless at the
-        contract level — any address with deployed bytecode can be
-        registered. The canonical list is a <em>recommendation</em>
-        (reviewed + freshness signal), not a gatekeeper. We review each
-        implementation version before publishing it to the canonical
-        registry. Users remain free to stay on any previous version, or
-        pin to a specific one, indefinitely. Third-party impls fall
-        outside that review — use them only when you are the author and
-        have reviewed them end-to-end.
-      </Callout>
-
-      <H3>Framework-agnostic readers</H3>
-      <P>
-        The SDK exports the same on-chain reads the webapp uses as plain
-        async functions — no React, no wagmi, just{' '}
-        <Code>(client, …args) → data</Code>. Drop them into a Node
-        script, a backend indexer, another frontend, anywhere you have a
-        viem <Code>PublicClient</Code>:
-      </P>
-      <ul className="space-y-1 text-sm text-muted pl-4 list-disc marker:text-subtle mt-2">
-        <li>
-          <Code>fetchAllProxies(client, factory)</Code> /{' '}
-          <Code>fetchProxiesByDeployer(client, factory, deployer)</Code>
-        </li>
-        <li>
-          <Code>readProxyStats</Code> / <Code>readProxyMetrics</Code> /{' '}
-          <Code>readProxyVersions</Code> /{' '}
-          <Code>readProxyVersionLabel</Code>
-        </li>
-        <li>
-          <Code>readSponsorPool</Code> / <Code>readSponsoredMetrics</Code>{' '}
-          — sponsored-only, return <Code>undefined</Code> on standard
-          proxies without throwing.
-        </li>
-      </ul>
-    </div>
-  )
-}
-
-function NetworkToggle({
-  value,
-  onChange,
-  label,
-  target,
-}: {
-  value: NetworkName
-  onChange: (n: NetworkName) => void
-  label: string
-  target: NetworkName
-}) {
-  const active = value === target
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(target)}
-      className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-        active
-          ? 'border-brand/60 bg-brand/[0.08] text-brand'
-          : 'border-line bg-surface text-muted hover:text-ink'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
-function CanonicalVersionsTable({
-  network,
-  family,
-}: {
-  network: NetworkName
-  family: ProxyFamily
-}) {
-  const versions = listVersionsByFamily(network, family)
-  const isLatest = (label: string) =>
-    CANONICAL_VERSIONS[network].latest[family] === label
-
-  return (
-    <div className="mt-4">
-      <div className="text-[10px] font-mono uppercase tracking-wider text-subtle mb-2">
-        {family}
-      </div>
-      {versions.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line bg-surface p-4 text-xs text-subtle">
-          No canonical {family} version published for {network} yet. The
-          Factory is permissionless — deploy anyway and register a custom
-          impl via the <Code>Advanced</Code> path on the ProxyDetail page.
-        </div>
-      ) : (
-        <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-          {versions.map((v) => (
-            <div key={v.label} className="px-5 py-4">
-              <dt className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-ink">{v.label}</span>
-                {isLatest(v.label) && (
-                  <span className="rounded-full border border-brand/40 bg-brand/10 text-brand text-[10px] font-mono uppercase tracking-wider px-2 py-0.5">
-                    latest
-                  </span>
-                )}
-              </dt>
-              <dd className="mt-1 font-mono text-[11px] text-subtle break-all">
-                {v.impl}
-              </dd>
-              {(v.review || v.summary) && (
-                <dd className="mt-2 text-xs text-muted leading-relaxed">
-                  {v.summary && <span>{v.summary}</span>}
-                  {v.review && (
-                    <>
-                      {v.summary && <span> · </span>}
-                      <a
-                        href={v.review.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand hover:opacity-80 transition-opacity"
-                      >
-                        Reviewed — {v.review.date}
-                      </a>
-                    </>
-                  )}
-                </dd>
-              )}
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
-  )
-}
-
-// ---- Workflow ----
-
-function Workflow() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Ship a new version" title="Workflow" />
-      <P>
-        A new version is a Solidity file that inherits from the previous
-        implementation. It gets reviewed by the Intuition team, deployed
-        once on-chain, and each proxy admin decides when — and whether —
-        to register it. Below is the full seven-step path from idea to
-        production. We review each implementation version before
-        publishing it to the canonical registry. Users remain free to
-        stay on any previous version, or pin to a specific one,
-        indefinitely.
-      </P>
-
-      <ol className="space-y-3 mt-6">
-        <Step
-          n="01"
-          title="Write the new implementation"
-          body={
-            <>
-              Create <Code>IntuitionFeeProxyV21.sol</Code> inheriting from{' '}
-              <Code>IntuitionFeeProxyV2</Code>. Add functions, override
-              existing ones, append new storage variables. Shrink the
-              parent&apos;s <Code>__gap</Code> by the number of slots you
-              add. Never reorder or delete existing storage.
-            </>
-          }
-        />
-        <Step
-          n="02"
-          title="Test"
-          body={
-            <>
-              Duplicate the parent&apos;s test suite and add coverage for
-              new behaviour. Every old test must still pass — that&apos;s
-              your regression guarantee. Run{' '}
-              <Code>bun contracts:test</Code> until green.
-            </>
-          }
-        />
-        <Step
-          n="03"
-          title="Deploy to testnet and validate"
-          body="Deploy the raw implementation (not a full proxy) to Intuition testnet. Pick a disposable test proxy, register the new impl via registerVersion, and exercise every entry point with realistic calldata before touching any real capital."
-        />
-        <Step
-          n="04"
-          title="Internal review"
-          body="The Intuition team reviews the implementation end-to-end before publication: diff against the previous canonical version, storage-layout check, test coverage, and threat-model notes. The review write-up is published alongside the implementation address."
-        />
-        <Step
-          n="05"
-          title="Deploy to mainnet, verify source"
-          body="One-shot deployment of the reviewed bytecode. Verify source on Intuition Explorer so every consumer can read the exact code that matches the deployed bytecode. No verification = no trust."
-        />
-        <Step
-          n="06"
-          title="Publish the canonical address"
-          body="Add it to the SDK's canonical-versions table and announce in the changelog with a link to the review write-up. This is the single address every proxy admin will register."
-        />
-        <Step
-          n="07"
-          title="Each admin promotes the new version (1 click = 2 sigs)"
-          body={
-            <>
-              On their ProxyDetail page, the new version shows up in the{' '}
-              <b>Versions (ERC-7936)</b> directory with an{' '}
-              <b>Available</b> status. Clicking <b>Promote</b> fires{' '}
-              <Code>registerVersion</Code> then chains{' '}
-              <Code>setDefaultVersion</Code> automatically once the first
-              receipt mines — two Safe signatures, one user action. If
-              the admin wants to keep the old default and just make the
-              new impl reachable for pinned users, they can use the{' '}
-              <b>Advanced</b> paste form; if already registered, a{' '}
-              <b>Make default</b> button flips it in a single tx.
-            </>
-          }
-        />
-      </ol>
-
-      <Callout title="Before you ship — minimal checklist">
-        Storage layout diff = append-only. Constructor has{' '}
-        <Code>_disableInitializers()</Code>. Every existing test passes
-        against the new impl. <Code>version()</Code> exposes the new
-        label. Source is verified on the explorer. Review write-up is
-        public. Canonical address is in the SDK.
-      </Callout>
-    </div>
-  )
-}
-
-// ---- Golden rules ----
-
-function GoldenRules() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Ship a new version" title="Golden rules" />
-      <P>
-        Hard rules for implementation authors. Breaking any of these can
-        brick existing proxies, corrupt storage, or give users unauthored
-        code. Treat as compile-time errors.
-      </P>
-
-      <ul className="space-y-4 mt-6 rounded-xl border border-line bg-surface p-5 text-sm leading-relaxed text-muted">
-        <Rule title="Inherit from the previous version">
-          Guarantees storage-slot compatibility and interface continuity.
-          Never redefine or reorder state variables from the parent.
-        </Rule>
-        <Rule title="Append-only storage">
-          New variables go after the parent&apos;s existing slots. Shrink
-          the parent&apos;s <Code>__gap</Code> by the exact number of
-          slots you add so the tail reservation stays consistent.
-        </Rule>
-        <Rule title="No new constructor logic">
-          Always <Code>_disableInitializers()</Code> in the constructor.
-          The proxy is already initialised; this impl never runs its own
-          initializer after the first deployment.
-        </Rule>
-        <Rule title="Guard re-initialisation with reinitializer(n)">
-          If you really need a one-shot state migration on upgrade, use{' '}
-          <Code>reinitializer(n)</Code> and increment <Code>n</Code> each
-          version so a migration step cannot run twice across
-          versions.
-        </Rule>
-        <Rule title="Emit a version marker">
-          Expose a <Code>version()</Code> pure function returning a
-          string so dashboards and diff tools can introspect without
-          guessing from the address. Emit a <Code>VersionUsed</Code>{' '}
-          event on every write path too — lets indexers prove which
-          impl actually executed a given tx without relying on
-          <Code>eth_getStorageAt</Code> guesswork.
-        </Rule>
-        <Rule title="Never raise the fee cap silently">
-          <Code>MAX_FEE_PERCENTAGE = 1000</Code> (10%) is hard-coded.
-          An admin cannot push <Code>depositPercentageFee</Code> past
-          it — the inverse-formula path in <Code>deposit()</Code>{' '}
-          would otherwise let an admin drain user deposits by flipping
-          the fee to 100%. A new impl MAY raise the cap, but only by
-          registering explicitly via <Code>registerVersion</Code>;
-          existing proxies stay bounded by their pinned impl&apos;s
-          constant forever.
-        </Rule>
-        <Rule title="Preserve the public interface">
-          Existing function selectors must keep the same signatures and
-          semantics. Breaking them would silently surprise users who
-          pinned the old version for trust reasons.
-        </Rule>
-        <Rule title="Never self-upgrade">
-          The implementation is pure logic. All upgrade authority lives
-          on the versioned proxy via <Code>registerVersion</Code> and{' '}
-          <Code>setDefaultVersion</Code>. No{' '}
-          <Code>_authorizeUpgrade</Code>, no UUPS escape hatches baked
-          into the impl.
-        </Rule>
-        <Rule title="Tag and verify">
-          Tag the commit matching the deployed bytecode, publish the
-          source on the explorer, link the review write-up. Same commit,
-          same bytecode, same address, everywhere.
-        </Rule>
-      </ul>
-    </div>
-  )
-}
-
-// ---- Sponsoring ----
-
-function Sponsoring() {
-  return (
-    <div className="space-y-5">
-      <PageHeader kicker="Concepts" title="Sponsoring" />
-      <P>
-        A proxy deployed on the <b>sponsored channel</b> runs the{' '}
-        <Code>IntuitionFeeProxyV2Sponsored</Code> implementation — a
-        superset of standard V2 that lets the proxy carry a shared TRUST
-        pool. Admins top the pool up whenever they need to; any user
-        interacting with the proxy then draws from it transparently. Use
-        case: a dApp that charges its users in fiat (Stripe, App Store)
-        but still needs TRUST on-chain to interact with the MultiVault.
-      </P>
-
-      <H3>One proxy, one pool, top up at will</H3>
-      <P>
-        The proxy is the sole sponsoring entity. There is no per-user
-        budget, no multi-sponsor tracking and no allowlist of who can
-        draw — admins call <Code>fundPool()</Code> as many times as they
-        like (each call adds <Code>msg.value</Code> to{' '}
-        <Code>sponsorPool</Code>), and every user who calls the proxy
-        consumes from the same bucket until it&apos;s empty. Fairness is
-        enforced by four rate-limit knobs applied over a configurable
-        rolling window: <Code>maxClaimPerTx</Code> (cap per single call),{' '}
-        <Code>maxClaimsPerWindow</Code> (max pool-drawing calls per user
-        per window), <Code>maxClaimVolumePerWindow</Code> (max cumulative
-        TRUST per user per window) and <Code>claimWindowSeconds</Code>{' '}
-        (window length — 1h, 1 day, 1 week, …).
-      </P>
-      <P>
-        For tiered subscriptions (free / pro / premium), deploy one
-        sponsored proxy per tier rather than encoding tiers on-chain.
-        Each proxy has its own pool, limits and admins — isolation is
-        cleaner and keeps the contract simple.
-      </P>
-      <P>
-        Funding is a plain on-chain call — you can expose it directly in
-        your dashboard and let multiple trusted admins top up from their
-        own wallets. Unspent TRUST is reclaimable any time via{' '}
-        <Code>reclaimFromPool(amount, to)</Code>.
-      </P>
-
-      <H3>The sponsored flow</H3>
-      <P>
-        The user calls the normal entry points (<Code>deposit</Code>,{' '}
-        <Code>createAtoms</Code>, <Code>createTriples</Code>,{' '}
-        <Code>depositBatch</Code>) from their own wallet. On{' '}
-        <Code>deposit</Code>, the proxy automatically draws up to{' '}
-        <Code>maxClaimPerTx</Code> from the pool and adds it to whatever{' '}
-        <Code>msg.value</Code> the user sent (which can be zero). On the
-        batched entry points, the user passes the asset amounts they want
-        to deposit, and the pool only fills the gap between{' '}
-        <Code>msg.value</Code> and the required total. In both cases the
-        user signs their own tx and owns the shares; the admin&apos;s
-        surface is limited to configuring and funding the pool.
-      </P>
-      <P>
-        For custodial onboarding flows where the user has no wallet of
-        their own, the app handles that at the frontend layer via an
-        embedded-AA kit (Privy, Thirdweb, Turnkey). The wallet still
-        belongs to the user conceptually, and the on-chain call still
-        originates from them.
-      </P>
-      <P>
-        Reclaim any unspent TRUST via{' '}
-        <Code>reclaimFromPool(amount, to)</Code> at any time.
-      </P>
-
-      <H3>Claim limits — mandatory, never unlimited</H3>
-      <P>
-        Sponsored proxies always enforce four rate-limits on credit
-        consumption, configurable by the admin but never zero:
-      </P>
-      <ul className="space-y-2 pl-4 list-disc marker:text-subtle text-sm text-muted">
-        <li>
-          <Code>maxClaimPerTx</Code> — max TRUST drawable from credit in a
-          single call. Default 1 TRUST. Acts as a <em>cap</em>: a user
-          with more credit than the cap only consumes up to the cap per
-          tx, the rest stays available for later.
-        </li>
-        <li>
-          <Code>maxClaimsPerWindow</Code> — max number of pool-drawing
-          calls per user per rolling window. Default 10. Only calls that
-          actually consume from the pool bump the counter — on the
-          batched entry points (<Code>createAtoms</Code>,{' '}
-          <Code>createTriples</Code>, <Code>depositBatch</Code>) a user
-          can send full <Code>msg.value</Code> to opt out of the pool
-          and leave their daily quota untouched. On <Code>deposit</Code>{' '}
-          the pool always contributes while it has balance, so that
-          entry point always bumps the counter until the pool is empty.
-        </li>
-        <li>
-          <Code>maxClaimVolumePerWindow</Code> — max cumulative TRUST (in
-          wei) a user can draw from the pool across all their calls in a
-          window. Default 10 TRUST. Hits <em>before</em> the count cap
-          when the user makes large individual claims — lets you enforce
-          a budget per user (e.g. 5 TRUST/week/student) independent of
-          how many transactions they spread it across.
-        </li>
-        <li>
-          <Code>claimWindowSeconds</Code> — length of the rolling window
-          in seconds. Default 86400 (1 day). Set it to 3600 for hourly,
-          604800 for weekly, 2592000 for monthly. All three caps above
-          roll over together when the window elapses.
-        </li>
-      </ul>
-
-      <H3>Admin API (all onlyWhitelistedAdmin)</H3>
-      <dl className="divide-y divide-line rounded-xl border border-line bg-surface overflow-hidden">
-        <Primitive
-          term="fundPool() payable"
-          desc="Top up the shared sponsor pool with msg.value TRUST. Callable as many times as you like — safe to expose directly in your dashboard so multiple admin wallets can contribute."
-        />
-        <Primitive
-          term="reclaimFromPool(amount, to)"
-          desc="Pull unspent TRUST out of the pool to any recipient address (e.g. treasury, Safe)."
-        />
-        <Primitive
-          term="setClaimLimits(maxPerTx, maxPerWindow, maxVolumePerWindow, windowSec)"
-          desc="Update all four rate-limit knobs atomically. Every value must stay > 0 (reverts otherwise). Window is the rolling duration in seconds (1h=3600, 1 day=86400, 1 week=604800)."
-        />
-      </dl>
-
-      <H3>User-facing API (same selectors as standard V2)</H3>
-      <P>
-        A sponsored proxy is ABI-compatible with V2 for users: the dApp
-        does not need a different SDK path for users with credit. Credit
-        consumption happens transparently inside the existing{' '}
-        <Code>deposit</Code> / <Code>createAtoms</Code> /{' '}
-        <Code>createTriples</Code> / <Code>depositBatch</Code> functions.
-      </P>
-
-      <H3>Example: fund 25 TRUST into the pool</H3>
-      <Block>{`await walletClient.writeContract({
-  abi: IntuitionFeeProxyV2SponsoredABI,
-  address: proxyAddress,
-  functionName: 'fundPool',
-  args: [],
-  value: parseEther('25'),
-})
-// Any user interacting with the proxy now draws up to maxClaimPerTx
-// from the pool per call, bounded by maxClaimsPerWindow (count) and
-// maxClaimVolumePerWindow (TRUST) per user over claimWindowSeconds.`}</Block>
-
-      <H3>Withdraw never dips into the sponsor pool</H3>
-      <P>
-        Fees and sponsor funds live in two separate counters —{' '}
-        <Code>accumulatedFees</Code> and <Code>sponsorPool</Code>. The
-        fee-withdraw path (<Code>withdraw</Code> /{' '}
-        <Code>withdrawAll</Code>) is capped at <Code>accumulatedFees</Code>{' '}
-        and decrements it, while <Code>reclaimFromPool</Code> is capped at{' '}
-        <Code>sponsorPool</Code> and decrements it. Neither path can touch
-        the other counter, so an admin can&apos;t accidentally drain the
-        sponsor pool by withdrawing fees.
-      </P>
-
-      <H3>Choose the channel at deploy time</H3>
-      <P>
-        The channel is fixed at proxy creation (<Code>Standard</Code> or{' '}
-        <Code>Sponsored</Code>) and can&apos;t be switched later without
-        deploying a new proxy. The Factory exposes{' '}
-        <Code>setSponsoredImplementation</Code> for the project owner so
-        V2.1Sponsored etc. can ship as canonical upgrades — but each
-        individual proxy chooses its family once and stays within it.
-      </P>
-    </div>
-  )
-}
-
-// ============ Small building blocks ============
-
-function Principle({
-  title,
-  body,
-}: {
-  title: string
-  body: React.ReactNode
-}) {
-  return (
-    <div className="rounded-xl border border-line bg-surface p-5">
-      <div className="flex items-center gap-2">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-brand" />
-        <span className="text-sm font-semibold text-ink">{title}</span>
-      </div>
-      <p className="mt-2 text-sm text-muted leading-relaxed">{body}</p>
-    </div>
-  )
-}
-
-function ChannelPreview({
-  variant,
-  name,
-  body,
-}: {
-  variant: 'fee' | 'sponsor'
-  name: string
-  body: string
-}) {
-  const isSponsor = variant === 'sponsor'
-  const borderCls = isSponsor ? 'border-[#e8a04a]/50' : 'border-brand/50'
-  const bgCls = isSponsor ? 'bg-[#e8a04a]/[0.05]' : 'bg-brand/[0.05]'
-  const textCls = isSponsor ? 'text-[#e8a04a]' : 'text-brand'
-  return (
-    <div className={`rounded-xl border ${borderCls} ${bgCls} p-5`}>
-      <div
-        className={`text-[10px] font-mono uppercase tracking-wider ${textCls}`}
-      >
-        {name}
-      </div>
-      <p className="mt-2 text-sm text-muted leading-relaxed">{body}</p>
-    </div>
-  )
-}
-
-function NavCard({
-  to,
-  kicker,
-  title,
-  body,
-}: {
-  to: string
-  kicker: string
-  title: string
-  body: string
-}) {
-  return (
-    <Link
-      to={to}
-      className="group rounded-xl border border-line bg-surface p-5 hover:border-line-strong transition-colors flex flex-col gap-2 h-full"
-    >
-      <div className="text-[10px] font-mono uppercase tracking-wider text-subtle">
-        {kicker}
-      </div>
-      <div className="font-semibold text-ink">{title}</div>
-      <p className="text-xs text-muted leading-relaxed">{body}</p>
-      <div className="mt-auto pt-2 text-xs text-muted group-hover:text-ink transition-colors">
-        Read →
-      </div>
-    </Link>
-  )
-}
-
-function Primitive({ term, desc }: { term: string; desc: ReactNode }) {
-  return (
-    <div className="px-5 py-4">
-      <dt className="font-mono text-xs text-ink">{term}</dt>
-      <dd className="mt-1 text-sm text-muted">{desc}</dd>
-    </div>
-  )
-}
-
-function Step({
-  n,
-  title,
-  body,
-}: {
-  n: string
-  title: string
-  body: ReactNode
-}) {
-  return (
-    <li className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-      <div className="font-mono text-xs text-subtle pt-0.5">{n}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-ink">{title}</div>
-        <p className="mt-1 text-sm text-muted leading-relaxed">{body}</p>
-      </div>
-    </li>
-  )
-}
-
-function Rule({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
-  return (
-    <li className="space-y-1">
-      <div className="flex items-center gap-2">
-        <span className="text-brand text-xs">▸</span>
-        <span className="font-medium text-ink">{title}</span>
-      </div>
-      <div className="pl-5">{children}</div>
-    </li>
-  )
-}
-
-function ArchitectureDiagram() {
-  return (
-    <div className="flex flex-col items-stretch space-y-2 my-6">
-      <Node title="Your wallet" subtitle="User or admin" />
-      <ArrowDown />
-      <Node
-        title="Fee proxy"
-        subtitle="ERC-7936 · routes to the default version, or to any pinned version on demand"
-        accent
-      >
-        <div className="mt-3 rounded-md border border-line bg-canvas p-2.5 font-mono text-[11px] leading-relaxed text-muted space-y-0.5">
-          <div>versions[&quot;v2.0.0&quot;] = logic_v2</div>
-          <div>
-            versions[&quot;v2.1.0&quot;] = logic_v21{' '}
-            <span className="text-brand">← default</span>
-          </div>
-        </div>
-      </Node>
-      <ArrowDown />
-      <Node
-        title="Logic (immutable per version)"
-        subtitle="deposit · createAtoms · withdraw · setFees"
-      />
-      <ArrowDown />
-      <Node
-        title="Intuition MultiVault"
-        subtitle="atoms · triples · deposits"
-      />
-    </div>
-  )
-}
-
-function Node({
-  title,
-  subtitle,
-  accent,
-  children,
-}: {
-  title: string
-  subtitle: string
-  accent?: boolean
-  children?: ReactNode
-}) {
-  return (
-    <div
-      className={`rounded-lg border p-4 ${
-        accent ? 'border-brand/30 bg-surface' : 'border-line bg-surface'
-      }`}
-    >
-      <div className="font-medium text-sm text-ink">{title}</div>
-      <div className="mt-1 text-xs text-muted">{subtitle}</div>
-      {children}
-    </div>
-  )
-}
-
-function ArrowDown() {
-  return (
-    <div className="flex flex-col items-center text-subtle">
-      <div className="h-4 w-px bg-line" />
-      <svg width="8" height="6" viewBox="0 0 12 8">
-        <path d="M0 0 L6 8 L12 0 Z" fill="currentColor" />
-      </svg>
     </div>
   )
 }

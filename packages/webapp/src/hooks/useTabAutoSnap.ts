@@ -2,25 +2,23 @@ import { useEffect } from 'react'
 
 import type { TabId } from '../types'
 
-const VIEWER_ALLOWED: ReadonlyArray<TabId> = ['overview', 'metrics']
-
 /**
- * Side-effect: if the user becomes a viewer (wallet disconnect or switched
- * to a non-admin account) while on a management-only tab, snap back to
+ * Side-effect: if the connected wallet loses management rights (disconnect or
+ * switched to a non-managing account) while on the Manage tab, snap back to
  * Overview. Prevents stale management UI from lingering post-disconnect.
  */
 export function useTabAutoSnap({
-  isViewer,
+  canManage,
   tab,
   setTab,
 }: {
-  isViewer: boolean
+  canManage: boolean
   tab: TabId
   setTab: (t: TabId) => void
 }): void {
   useEffect(() => {
-    if (isViewer && !VIEWER_ALLOWED.includes(tab)) {
+    if (!canManage && tab !== 'overview') {
       setTab('overview')
     }
-  }, [isViewer, tab, setTab])
+  }, [canManage, tab, setTab])
 }

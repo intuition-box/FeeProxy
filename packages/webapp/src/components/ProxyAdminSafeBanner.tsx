@@ -4,34 +4,29 @@ import { useChainId } from 'wagmi'
 import { useSafeStatus } from '../hooks/useSafeStatus'
 
 interface Props {
-  proxyAdmin: Address | undefined
+  /** The connected admin account. */
+  admin: Address | undefined
 }
 
 const INTUITION_MAINNET_CHAIN_ID = 1155
 
 /**
- * Banner specifically for Role 1 (proxyAdmin). Stricter than the
- * fee-admin variant because the proxyAdmin can swap the proxy's
- * implementation — it effectively holds the upgrade key, so an EOA
- * compromise here is catastrophic (the attacker can replace the logic
- * with any contract they want).
- *
- * - Safe                 -> emerald, no fanfare
- * - Generic contract     -> neutral info, "verify it's a multisig"
- * - EOA on dev/testnet   -> amber, "fine for dev"
- * - EOA on mainnet       -> rose, prominent, points to runbook
+ * Banner shown above the protocol admin panel. When the connected admin is a
+ * Safe, admin actions route through the Safe propose/co-sign flow — surfaced
+ * here so the operator knows what to expect. An EOA admin on mainnet is
+ * flagged as high-risk (single key controls global protocol config).
  */
-export function ProxyAdminSafeBanner({ proxyAdmin }: Props) {
+export function ProxyAdminSafeBanner({ admin }: Props) {
   const chainId = useChainId()
-  const status = useSafeStatus(proxyAdmin)
+  const status = useSafeStatus(admin)
   const onMainnet = chainId === INTUITION_MAINNET_CHAIN_ID
 
-  if (!proxyAdmin || status.kind === 'unknown') return null
+  if (!admin || status.kind === 'unknown') return null
 
   if (status.kind === 'safe') {
     return (
       <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/5 px-4 py-2.5 text-xs text-emerald-300">
-        <strong>Safe-managed proxyAdmin.</strong> Upgrades require multisig quorum — production-grade.
+        <strong>Safe-managed admin.</strong> Actions are proposed to the Safe and require multisig quorum — they will not execute immediately.
       </div>
     )
   }
@@ -39,7 +34,7 @@ export function ProxyAdminSafeBanner({ proxyAdmin }: Props) {
   if (status.kind === 'contract') {
     return (
       <div className="rounded-lg border border-line bg-surface px-4 py-2.5 text-xs text-muted">
-        <strong>Smart-contract proxyAdmin</strong> — not detected as a known Safe singleton. Verify it&apos;s a multisig you trust.
+        <strong>Smart-contract admin</strong> — not detected as a known Safe singleton. Actions are sent directly.
       </div>
     )
   }
@@ -48,7 +43,7 @@ export function ProxyAdminSafeBanner({ proxyAdmin }: Props) {
   if (onMainnet) {
     return (
       <div className="rounded-lg border border-rose-400/50 bg-rose-400/5 px-4 py-3 text-xs text-rose-300">
-        <strong>EOA proxyAdmin on mainnet — high risk.</strong> This single key can swap the proxy&apos;s implementation, replacing the entire logic of the contract. A key compromise here means total loss of control. Rotate to a Gnosis Safe before any production use.{' '}
+        <strong>EOA admin on mainnet — high risk.</strong> A single key controls every global protocol setting and role grant. Move the admin role to a Gnosis Safe before production use.{' '}
         <Link
           to="/docs/safe-admin"
           className="underline decoration-rose-400/60 hover:decoration-rose-200 font-medium"
@@ -62,7 +57,7 @@ export function ProxyAdminSafeBanner({ proxyAdmin }: Props) {
 
   return (
     <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 px-4 py-2.5 text-xs text-amber-300">
-      <strong>EOA proxyAdmin.</strong> Fine for dev / testing. Rotate to a Safe before this proxy goes near mainnet.{' '}
+      <strong>EOA admin.</strong> Fine for dev / testing. Move to a Safe before mainnet.{' '}
       <Link
         to="/docs/safe-admin"
         className="underline decoration-amber-400/60 hover:decoration-amber-200"

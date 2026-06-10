@@ -1,7 +1,7 @@
 {
   "name": "@intuition-fee-proxy/sdk",
   "version": "2.0.0-alpha.0",
-  "description": "Canonical registry, ABIs, chain config and type-safe readers for the Intuition fee-proxy ecosystem.",
+  "description": "ABI, addresses, chain config, fee math and type-safe readers for the Intuition multi-tenant FeeProxy singleton.",
   "license": "MIT",
   "author": "Intuition",
   "homepage": "https://intuition.box",

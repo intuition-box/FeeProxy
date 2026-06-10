@@ -1,10 +1,11 @@
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import HomePage from './pages/Home'
-import DeployPage from './pages/Deploy'
-import ExplorePage from './pages/Explore'
-import MyProxiesPage from './pages/MyProxies'
-import ProxyDetailPage from './pages/ProxyDetail'
+import RegisterPage from './pages/Register'
+import AffiliatesPage from './pages/Affiliates'
+import MyAffiliatePage from './pages/MyAffiliate'
+import AffiliateDetailPage from './pages/AffiliateDetail'
+import AdminPage from './pages/Admin'
 import DocsPage from './pages/Docs'
 
 export default function App() {
@@ -12,10 +13,11 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/deploy" element={<DeployPage />} />
-        <Route path="/explore" element={<ExplorePage />} />
-        <Route path="/my-proxies" element={<MyProxiesPage />} />
-        <Route path="/proxy/:address" element={<ProxyDetailPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/affiliates" element={<AffiliatesPage />} />
+        <Route path="/me" element={<MyAffiliatePage />} />
+        <Route path="/affiliate/:address" element={<AffiliateDetailPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/docs/:section" element={<DocsPage />} />
       </Route>

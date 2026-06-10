@@ -3,26 +3,17 @@ import type { TabId } from '../types'
 interface Props {
   active: TabId
   onChange: (t: TabId) => void
-  isSponsored: boolean
-  isViewer: boolean
+  /** Hide the management tab for read-only viewers. */
+  canManage: boolean
 }
 
-export function Tabs({ active, onChange, isSponsored, isViewer }: Props) {
-  const items: { id: TabId; label: string }[] = isViewer
+export function Tabs({ active, onChange, canManage }: Props) {
+  const items: { id: TabId; label: string }[] = canManage
     ? [
         { id: 'overview', label: 'Overview' },
-        { id: 'metrics', label: 'Metrics' },
+        { id: 'manage', label: 'Manage' },
       ]
-    : [
-        { id: 'overview', label: 'Overview' },
-        { id: 'fee', label: 'Fee' },
-        ...(isSponsored
-          ? [{ id: 'sponsoring' as TabId, label: 'Sponsoring' }]
-          : []),
-        { id: 'history' as TabId, label: 'History' },
-        { id: 'metrics', label: 'Metrics' },
-        { id: 'admins', label: 'Admins' },
-      ]
+    : [{ id: 'overview', label: 'Overview' }]
 
   return (
     <div className="flex items-center gap-6 border-b border-line">

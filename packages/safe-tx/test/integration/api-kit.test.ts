@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { getAddress } from 'viem'
 import { createApiKitClient, type ApiKitClient } from '../../src/modes/api-kit.js'
 import { buildSafeTx, signSafeTx } from '../../src/modes/direct-sign.js'
-import * as v2 from '../../src/ops/v2-admin.js'
+import * as feeProxy from '../../src/ops/fee-proxy-admin.js'
 import { envSigner } from '../../src/signers/env.js'
 import { startMockSts, type MockSts } from '../fixtures/mock-sts.js'
 
@@ -33,7 +33,7 @@ describe('api-kit mode against mock STS', () => {
   })
 
   it('propose stores the SafeTx with the proposer signature', async () => {
-    const op = v2.setDepositFixedFee(PROXY, 100n)
+    const op = feeProxy.setMaxBps(PROXY, 100n)
     const payload = await buildSafeTx({
       safe: SAFE,
       chainId: 1155,
@@ -56,7 +56,7 @@ describe('api-kit mode against mock STS', () => {
   })
 
   it('confirm appends a second signature to the same SafeTx', async () => {
-    const op = v2.setDepositPercentageFee(PROXY, 250n)
+    const op = feeProxy.setMaxFixedFee(PROXY, 250n)
     const payload = await buildSafeTx({ safe: SAFE, chainId: 1155, op, nonce: 5n })
     const signerA = envSigner({ privateKey: PK_A })
     const signerB = envSigner({ privateKey: PK_B })
@@ -74,7 +74,7 @@ describe('api-kit mode against mock STS', () => {
   })
 
   it('getTx returns the stored record by safeTxHash', async () => {
-    const op = v2.withdraw(PROXY, signerAAddr(), 10n ** 18n)
+    const op = feeProxy.setRegistrationFee(PROXY, 10n ** 18n)
     const payload = await buildSafeTx({ safe: SAFE, chainId: 1155, op, nonce: 1n })
     const signerA = envSigner({ privateKey: PK_A })
     const signed = await signSafeTx(payload, signerA)
@@ -94,7 +94,7 @@ describe('api-kit mode against mock STS', () => {
   it('getPendingTxs lists everything stored for a Safe', async () => {
     const signerA = envSigner({ privateKey: PK_A })
     for (const nonce of [10n, 11n, 12n]) {
-      const op = v2.setDepositFixedFee(PROXY, nonce)
+      const op = feeProxy.setMaxBps(PROXY, nonce)
       const payload = await buildSafeTx({ safe: SAFE, chainId: 1155, op, nonce })
       const signed = await signSafeTx(payload, signerA)
       await client.propose(payload, signed)
@@ -104,7 +104,3 @@ describe('api-kit mode against mock STS', () => {
     expect(pending).toHaveLength(3)
   })
 })
-
-function signerAAddr(): `0x${string}` {
-  return envSigner({ privateKey: PK_A }).address
-}
