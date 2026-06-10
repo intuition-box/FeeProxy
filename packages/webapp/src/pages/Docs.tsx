@@ -8,7 +8,7 @@ type SectionId =
   | 'approvals'
   | 'fees-caps'
   | 'refunds'
-  | 'safe-admin'
+  | 'roles'
   | 'integration'
 
 const GROUPS = [
@@ -29,10 +29,10 @@ const GROUPS = [
     ],
   },
   {
-    label: 'Operations',
+    label: 'Reference',
     items: [
-      { id: 'safe-admin' as SectionId, label: 'Admin & roles via Safe' },
-      { id: 'integration' as SectionId, label: 'SDK integration' },
+      { id: 'roles' as SectionId, label: 'Roles & pause' },
+      { id: 'integration' as SectionId, label: 'Integrate your dApp' },
     ],
   },
 ] as const
@@ -105,8 +105,8 @@ function SectionContent({ id }: { id: SectionId }) {
       return <FeesCaps />
     case 'refunds':
       return <Refunds />
-    case 'safe-admin':
-      return <SafeAdmin />
+    case 'roles':
+      return <Roles />
     case 'integration':
       return <Integration />
   }
@@ -316,29 +316,33 @@ function Refunds() {
   )
 }
 
-function SafeAdmin() {
+function Roles() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Operations" title="Admin & roles via Safe" />
+      <PageHeader kicker="Reference" title="Roles & pause" />
       <P>
-        The singleton uses OpenZeppelin AccessControl with two roles:{' '}
-        <Code>DEFAULT_ADMIN_ROLE</Code> (global caps, registration fee,
-        affiliate unpause, role grants) and <Code>PAUSER_ROLE</Code> (global
-        pause and per-affiliate pause). The Admin page gates each control on the
-        connected wallet&apos;s role.
+        The singleton uses OpenZeppelin AccessControl with two protocol roles,
+        both held by Intuition — never by affiliates:{' '}
+        <Code>DEFAULT_ADMIN_ROLE</Code> (global bps / fixed-fee caps, the
+        registration fee, affiliate unpause, role grants) and{' '}
+        <Code>PAUSER_ROLE</Code> (global pause and per-affiliate pause).
       </P>
-      <H3>Safe-managed admin</H3>
+      <H3>What you control</H3>
       <P>
-        When the connected admin is a Gnosis Safe (Intuition mainnet, via Den),
-        the Admin page proposes each action through the Safe propose / co-sign /
-        execute flow instead of sending a direct transaction. An EOA admin sends
-        directly. Move the admin role to a Safe before production: a single key
-        controlling global protocol config is high risk.
+        As an affiliate you manage only your own row:{' '}
+        <Code>registerAffiliate</Code>, <Code>updateAffiliateFees</Code> and{' '}
+        <Code>updateFeeRecipient</Code>. You cannot change protocol caps or
+        pause anyone — those are protocol-side.
       </P>
-      <Callout title="No Safe support on testnet">
-        Intuition testnet has no Safe infrastructure — admin actions there are
-        EOA-only.
-      </Callout>
+      <H3>If your row is paused</H3>
+      <P>
+        A pauser can flip <Code>pauseAffiliate</Code> on your row as a one-way
+        kill switch (an admin reverses it via <Code>unpauseAffiliate</Code>).
+        While paused, new deposits and creations through your id revert — but
+        you can still update your fees and recipient, so routing resumes the
+        instant it is unpaused. User redemptions against MultiVault are never
+        affected.
+      </P>
     </div>
   )
 }
@@ -346,28 +350,32 @@ function SafeAdmin() {
 function Integration() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Operations" title="SDK integration" />
+      <PageHeader kicker="Reference" title="Integrate your dApp" />
       <P>
-        <Code>@intuition-fee-proxy/sdk</Code> ships the <Code>FeeProxyABI</Code>,
-        addresses, chain configs, fee math, and viem-based readers.
+        Integrate against the FeeProxy ABI directly. Call the singleton and pass
+        your affiliate id as the first argument; fees route to your recipient
+        and your dashboard tracks the activity.
       </P>
-      <Block>{`import {
-  FeeProxyABI,
-  FEEPROXY_ADDRESSES,
-  readAffiliateConfig,
-  buildFeeGuard,
-} from '@intuition-fee-proxy/sdk'
+      <Block>{`import { FeeProxyABI } from './abi/feeProxy'
 
-const feeProxy = FEEPROXY_ADDRESSES.testnet
-const cfg = await readAffiliateConfig(client, feeProxy, affiliate)
-const guard = buildFeeGuard(
-  { bps: cfg.fees.depositBps, fixedFee: cfg.fees.depositFixedFee },
-  1000n, // tolerate a 10% bump
-)`}</Block>
+// In a wagmi app — route a deposit through your affiliate:
+const shares = await writeContract(config, {
+  address: feeProxy,            // the singleton (per network)
+  abi: FeeProxyABI,
+  functionName: 'depositVia',
+  args: [
+    affiliate,                  // your affiliate id
+    receiver, termId, curveId,
+    grossAssets, minShares,
+    { maxFeeBps, maxFixedFee }, // per-call front-run guard
+  ],
+  value: grossAssets,
+})`}</Block>
       <P>
-        In a wagmi app, import <Code>FeeProxyABI</Code> and use{' '}
-        <Code>useReadContract</Code> / <Code>useWriteContract</Code> directly —
-        the readers are for non-wagmi consumers.
+        Reads like <Code>affiliateConfig</Code>, <Code>affiliateStats</Code> and{' '}
+        <Code>previewDepositFee</Code> work the same way via{' '}
+        <Code>useReadContract</Code>. A published SDK with fee-math helpers and
+        non-wagmi readers ships later.
       </P>
     </div>
   )
