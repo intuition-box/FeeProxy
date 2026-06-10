@@ -7,10 +7,11 @@ import Address from '../components/Address'
 import { Spinner } from '../components/Spinner'
 import { AffiliateConfigCard, AffiliateStatsCard } from '../components/AffiliateView'
 import { ManageAffiliate } from '../components/ManageAffiliate'
+import { IntegrationKit } from '../components/IntegrationKit'
 
 export default function MyAffiliatePage() {
   const { address } = useAccount()
-  const { configured } = useFeeProxyAddress()
+  const { feeProxy, network, configured } = useFeeProxyAddress()
   const { config, stats, registered, isLoading, refetch } = useAffiliate(address)
 
   return (
@@ -56,6 +57,11 @@ export default function MyAffiliatePage() {
         <div className="space-y-10">
           <AffiliateConfigCard config={config} />
           {stats && <AffiliateStatsCard stats={stats} />}
+          <IntegrationKit
+            feeProxy={feeProxy}
+            affiliate={address}
+            network={network}
+          />
           {config.paused ? (
             <div className="rounded-lg border border-rose-400/40 bg-rose-400/5 px-4 py-3 text-xs text-rose-300">
               Your affiliate is paused by a protocol admin. Routing is blocked
