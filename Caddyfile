@@ -1,0 +1,9 @@
+# Serve the built SPA on :80 (Coolify's proxy terminates TLS in front).
+# `try_files … /index.html` makes deep links and refreshes resolve through
+# React Router instead of 404ing.
+:80 {
+	root * /srv
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}
