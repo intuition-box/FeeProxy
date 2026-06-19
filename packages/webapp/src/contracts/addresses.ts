@@ -20,5 +20,6 @@ export const MULTIVAULT_ADDRESSES = {
 
 export const FEEPROXY_ADDRESSES = {
   mainnet: '0x0000000000000000000000000000000000000000',
-  testnet: '0x0000000000000000000000000000000000000000',
+  // Deployed FeeProxy singleton on the Intuition testnet (chain 13579).
+  testnet: '0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792',
 } as const satisfies Record<NetworkName, `0x${string}`>
