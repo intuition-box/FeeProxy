@@ -55,14 +55,14 @@ export default function Layout() {
       <main className="relative flex-1">
         <div
           aria-hidden
-          className={`hidden dark:block pointer-events-none absolute inset-x-0 top-0 h-[820px] z-0 transition-opacity ease-out ${
+          className={`hidden dark:block pointer-events-none absolute inset-x-0 top-0 h-[1400px] z-0 transition-opacity ease-out ${
             isHome ? 'opacity-100 duration-1000' : 'opacity-0 duration-100'
           }`}
           style={{
             maskImage:
-              'linear-gradient(to bottom, transparent 0px, black 120px)',
+              'linear-gradient(to bottom, transparent 0px, black 32px)',
             WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0px, black 120px)',
+              'linear-gradient(to bottom, transparent 0px, black 32px)',
           }}
         >
           <div className="mx-auto max-w-6xl h-full px-6">
