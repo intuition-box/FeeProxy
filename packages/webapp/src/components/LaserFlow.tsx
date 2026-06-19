@@ -438,7 +438,10 @@ export const LaserFlow = ({
       (entries) => {
         inViewRef.current = entries[0]?.isIntersecting ?? true
       },
-      { root: null, threshold: 0 },
+      // Generous margin: the beam sits at the top of the page, so keep it
+      // "in view" even before layout settles — otherwise a 0-height first
+      // measurement reports not-intersecting and freezes the fade-in.
+      { root: null, threshold: 0, rootMargin: '600px' },
     )
     io.observe(mount)
 
