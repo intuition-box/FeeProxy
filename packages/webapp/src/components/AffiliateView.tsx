@@ -11,19 +11,28 @@ function Card({
   cols,
   children,
 }: {
-  title: string
+  title?: string
   badge?: ReactNode
   cols: 2 | 3
   children: ReactNode
 }) {
+  const hasHeader = Boolean(title || badge)
   return (
     <section className="rounded-2xl border border-brand/25 bg-surface/70 p-6 backdrop-blur-md shadow-[0_0_60px_-15px_rgba(240,122,63,0.35)]">
-      <div className="flex items-center gap-3">
-        <h2 className="text-[11px] font-medium uppercase tracking-wider text-subtle">{title}</h2>
-        {badge}
-      </div>
+      {hasHeader && (
+        <div className="flex items-center gap-3">
+          {title && (
+            <h2 className="text-[11px] font-medium uppercase tracking-wider text-subtle">
+              {title}
+            </h2>
+          )}
+          {badge}
+        </div>
+      )}
       <div
-        className={`mt-5 grid gap-x-6 gap-y-5 ${cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}
+        className={`grid gap-x-6 gap-y-5 ${hasHeader ? 'mt-5' : ''} ${
+          cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+        }`}
       >
         {children}
       </div>
@@ -82,18 +91,22 @@ export function AffiliateConfigCard({ config }: { config: AffiliateConfig }) {
 /** Read-only render of an affiliate's aggregate analytics. */
 export function AffiliateStatsCard({ stats }: { stats: AffiliateStats }) {
   return (
-    <Card title="Analytics" cols={3}>
-      <Cell label="Transactions">{stats.txCount.toString()}</Cell>
-      <Cell label="Unique users">{stats.uniqueUsers.toString()}</Cell>
-      <Cell label="Total fees" emphasize>
-        {`${formatTrust(stats.totalFees)} TRUST`}
-      </Cell>
-      <Cell label="Gross routed">{`${formatTrust(stats.totalGrossAssets)} TRUST`}</Cell>
-      <Cell label="Forwarded">{`${formatTrust(stats.totalForwardedAssets)} TRUST`}</Cell>
-      <Cell label="Deposits">{stats.depositCount.toString()}</Cell>
-      <Cell label="Atom/triple creations">{stats.creationCount.toString()}</Cell>
-      <Cell label="Deposit fees">{`${formatTrust(stats.depositFees)} TRUST`}</Cell>
-      <Cell label="Creation fees">{`${formatTrust(stats.creationFees)} TRUST`}</Cell>
-    </Card>
+    <div className="space-y-4">
+      <Card cols={3}>
+        <Cell label="Transactions">{stats.txCount.toString()}</Cell>
+        <Cell label="Unique users">{stats.uniqueUsers.toString()}</Cell>
+        <Cell label="Total fees" emphasize>
+          {`${formatTrust(stats.totalFees)} TRUST`}
+        </Cell>
+      </Card>
+      <Card cols={3}>
+        <Cell label="Gross routed">{`${formatTrust(stats.totalGrossAssets)} TRUST`}</Cell>
+        <Cell label="Forwarded">{`${formatTrust(stats.totalForwardedAssets)} TRUST`}</Cell>
+        <Cell label="Deposits">{stats.depositCount.toString()}</Cell>
+        <Cell label="Atom/triple creations">{stats.creationCount.toString()}</Cell>
+        <Cell label="Deposit fees">{`${formatTrust(stats.depositFees)} TRUST`}</Cell>
+        <Cell label="Creation fees">{`${formatTrust(stats.creationFees)} TRUST`}</Cell>
+      </Card>
+    </div>
   )
 }
