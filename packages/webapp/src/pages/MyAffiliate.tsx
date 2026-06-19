@@ -16,7 +16,7 @@ export default function MyAffiliatePage() {
   const { config, stats, registered, isLoading, refetch } = useAffiliate(address)
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <header className="space-y-2">
         <div className="text-[11px] font-medium uppercase tracking-wider text-brand">
           Affiliate
