@@ -1,66 +1,75 @@
 import { Link } from 'react-router-dom'
 
+import { useProtocolStats } from '../hooks/useProtocolStats'
+import { formatTrust } from '../lib/format'
+
 export default function HomePage() {
   return (
-    <div className="space-y-10">
-      <section className="max-w-xl space-y-6 pt-6">
-        <h1 className="text-5xl font-semibold tracking-tight text-ink leading-[1.1]">
-          A shared fee layer for the{' '}
-          <span className="text-brand">Intuition MultiVault</span>.
-        </h1>
-        <p className="text-lg text-muted leading-relaxed max-w-md">
-          One multi-tenant FeeProxy per network. Register your dApp as an
-          affiliate, set your fees once, and point your app at your affiliate
-          address — fees are routed straight to your recipient on every deposit
-          and atom creation.
-        </p>
-      </section>
+    <div className="space-y-20">
+      {/* Hero: text + CTA left, live stats right, beam centered behind (Layout) */}
+      <section className="grid min-h-[560px] items-center gap-12 pt-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <h1 className="text-5xl font-semibold tracking-tight text-ink leading-[1.1]">
+            A shared fee layer for the{' '}
+            <span className="text-brand">Intuition MultiVault</span>.
+          </h1>
+          <p className="text-lg text-muted leading-relaxed max-w-md">
+            Register your dApp as an affiliate, set your fees once, and point
+            your app at your affiliate address — fees route straight to your
+            recipient on every deposit and atom creation.
+          </p>
+          <div className="flex items-center gap-4 pt-2">
+            <Link to="/register" className="btn-primary px-5 py-2.5">
+              Register as affiliate
+            </Link>
+            <Link
+              to="/docs"
+              className="rounded-md border border-line px-5 py-2.5 text-sm text-ink transition-colors hover:border-line-strong"
+            >
+              Read the docs
+            </Link>
+          </div>
+        </div>
 
-      <section className="space-y-6">
-        <CallFlow />
-        <div className="flex items-center gap-5 pt-2">
-          <Link to="/register" className="btn-primary px-5 py-2.5">
-            Register as affiliate
-          </Link>
-          <Link
-            to="/affiliates"
-            className="text-sm text-muted hover:text-ink transition-colors"
-          >
-            Browse affiliates →
-          </Link>
-          <Link
-            to="/docs"
-            className="ml-auto text-sm text-muted hover:text-ink transition-colors"
-          >
-            Read the docs →
-          </Link>
+        <div className="w-full max-w-sm lg:justify-self-end">
+          <NetworkStatsCard />
         </div>
       </section>
 
-      <section className="grid gap-12 sm:grid-cols-3">
-        {[
-          {
-            title: 'Multi-tenant',
-            body:
-              'A single singleton hosts every affiliate. Your wallet keys one affiliate row — no per-dApp deployment, no proxy to manage.',
-          },
-          {
-            title: 'Push-based fees',
-            body:
-              'Fees are forwarded to your fee recipient at routing time. No pool, no accumulated balance, no withdraw step.',
-          },
-          {
-            title: 'Bounded by caps',
-            body:
-              'Protocol admins set global maximum bps and fixed fees. Your configured fees must stay within those caps or registration reverts.',
-          },
-        ].map((f) => (
-          <div key={f.title} className="rounded-xl border border-line bg-surface p-6">
-            <div className="text-base font-medium text-ink">{f.title}</div>
-            <p className="mt-2 text-sm text-muted leading-relaxed">{f.body}</p>
-          </div>
-        ))}
+      {/* Call flow, descended below the hero */}
+      <section className="space-y-4">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-brand">
+          How it works
+        </div>
+        <CallFlow />
       </section>
+    </div>
+  )
+}
+
+/** Glassy live-stats card sitting to the right of the beam in the hero. */
+function NetworkStatsCard() {
+  const { affiliateCount, totalForwarded, totalFees, totalTx, configured, isLoading } =
+    useProtocolStats()
+
+  const cell = (label: string, value: string) => (
+    <div className="space-y-1 border-t border-line pt-3">
+      <div className="text-[11px] uppercase tracking-wider text-subtle">{label}</div>
+      <div className="text-lg font-semibold text-ink">{isLoading ? '…' : value}</div>
+    </div>
+  )
+
+  return (
+    <div className="rounded-2xl border border-brand/25 bg-surface/70 p-6 backdrop-blur-md shadow-[0_0_60px_-15px_rgba(240,122,63,0.35)]">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-subtle">
+        {configured ? 'Live on Intuition testnet' : 'Network'}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5">
+        {cell('Affiliates', configured ? String(affiliateCount) : '—')}
+        {cell('Funds routed', configured ? `${formatTrust(totalForwarded)} TRUST` : '—')}
+        {cell('Fees paid', configured ? `${formatTrust(totalFees)} TRUST` : '—')}
+        {cell('Transactions', configured ? totalTx.toString() : '—')}
+      </div>
     </div>
   )
 }
