@@ -52,32 +52,14 @@ const ALL_IDS: ReadonlyArray<SectionId> = ALL_ITEMS.map((i) => i.id)
 export default function DocsPage() {
   const params = useParams<{ section?: SectionId }>()
   const section = (params.section ?? 'quickstart') as SectionId
-  const { feeProxy, multiVault, network, configured } = useFeeProxyAddress()
-  const guide = buildAgentGuide({
-    feeProxy: configured ? feeProxy : '<FEEPROXY_SINGLETON_ADDRESS>',
-    multiVault,
-    network,
-  })
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-wider text-brand">Docs</div>
-          <p className="mt-1 text-sm text-muted">
-            Integrate the FeeProxy, or hand the whole spec to an AI agent.
-          </p>
-        </div>
-        <CopyGuideButton text={guide} />
-      </div>
-
-      <div className="grid gap-12 md:grid-cols-[200px_1fr]">
-        <Sidebar active={section} />
-        <article className="min-w-0 max-w-2xl">
-          <SectionContent id={section} />
-          <SectionFooter id={section} />
-        </article>
-      </div>
+    <div className="grid gap-12 md:grid-cols-[200px_1fr]">
+      <Sidebar active={section} />
+      <article className="min-w-0 max-w-2xl">
+        <SectionContent id={section} />
+        <SectionFooter id={section} />
+      </article>
     </div>
   )
 }
@@ -341,6 +323,12 @@ function Steps({ children }: { children: ReactNode[] }) {
 // ---- sections ----
 
 function Quickstart() {
+  const { feeProxy, multiVault, network, configured } = useFeeProxyAddress()
+  const guide = buildAgentGuide({
+    feeProxy: configured ? feeProxy : '<FEEPROXY_SINGLETON_ADDRESS>',
+    multiVault,
+    network,
+  })
   return (
     <div className="space-y-5">
       <PageHeader kicker="Get started" title="Quickstart" />
@@ -373,10 +361,17 @@ function Quickstart() {
           </>,
         ]}
       </Steps>
-      <Callout title="Fastest path">
-        Jump to the <Link to="/docs/agent" className="text-brand underline decoration-brand/50">AI agent prompt</Link>{' '}
-        — paste it into your coding agent and it scaffolds the integration with the live
-        addresses for you.
+      <Callout title="Fastest path — hand it to an AI agent">
+        Copy the whole integration spec (live addresses, <Code>depositVia</Code> signature, fee
+        math, approval flow) and paste it into your coding agent (Claude Code, Cursor, …) — it
+        scaffolds the integration for you. Same content as the{' '}
+        <Link to="/docs/agent" className="text-brand underline decoration-brand/50">
+          AI agent prompt
+        </Link>{' '}
+        section.
+        <div className="mt-3">
+          <CopyGuideButton text={guide} />
+        </div>
       </Callout>
     </div>
   )
