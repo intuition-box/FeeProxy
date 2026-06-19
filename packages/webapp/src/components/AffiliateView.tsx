@@ -17,6 +17,10 @@ function Card({
   children: ReactNode
 }) {
   const hasHeader = Boolean(title || badge)
+  // Drop the hairline on the first row so it never sits at the card's top edge;
+  // inner rows keep their top border as a separator.
+  const firstRowFlat =
+    cols === 3 ? '[&>*:nth-child(-n+3)]:border-t-0' : '[&>*:nth-child(-n+2)]:border-t-0'
   return (
     <section className="rounded-2xl border border-brand/25 bg-surface/70 p-6 backdrop-blur-md shadow-[0_0_60px_-15px_rgba(240,122,63,0.35)]">
       {hasHeader && (
@@ -30,7 +34,7 @@ function Card({
         </div>
       )}
       <div
-        className={`grid gap-x-6 gap-y-5 ${hasHeader ? 'mt-5' : ''} ${
+        className={`grid gap-x-6 gap-y-5 ${firstRowFlat} ${hasHeader ? 'mt-5' : ''} ${
           cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
         }`}
       >
