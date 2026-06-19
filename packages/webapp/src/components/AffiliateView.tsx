@@ -68,18 +68,9 @@ function Cell({
 /** Read-only render of an affiliate's registry row. */
 export function AffiliateConfigCard({ config }: { config: AffiliateConfig }) {
   const reg = formatDateParts(Number(config.registeredAt))
-  const badge = config.paused ? (
-    <span className="rounded border border-rose-400/40 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-rose-400">
-      Paused
-    </span>
-  ) : (
-    <span className="rounded border border-brand/40 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-brand">
-      Active
-    </span>
-  )
 
   return (
-    <Card title="Configuration" badge={badge} cols={2}>
+    <Card cols={2}>
       <Cell label="Fee recipient">
         <Address value={config.feeRecipient} variant="short" />
       </Cell>
