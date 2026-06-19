@@ -43,3 +43,6 @@ forge-cache/
 
 # Auto-synced ABIs
 packages/sdk/src/abis/*.json
+
+#intuition contract 
+intuition-contracts-v2 

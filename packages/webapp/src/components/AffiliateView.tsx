@@ -1,63 +1,109 @@
+import type { ReactNode } from 'react'
+
 import type { AffiliateConfig, AffiliateStats } from '../contracts'
 import Address from './Address'
-import { Stat } from './Stat'
-import { Metric } from './Metric'
 import { formatBps, formatDateParts, formatTrust } from '../lib/format'
+
+/** Glassy card matching the home stats card, with a kicker title + cell grid. */
+function Card({
+  title,
+  badge,
+  cols,
+  children,
+}: {
+  title?: string
+  badge?: ReactNode
+  cols: 2 | 3
+  children: ReactNode
+}) {
+  const hasHeader = Boolean(title || badge)
+  // Drop the hairline on the first row so it never sits at the card's top edge;
+  // inner rows keep their top border as a separator.
+  const firstRowFlat =
+    cols === 3
+      ? '[&>*:nth-child(-n+3)]:border-t-0 [&>*:nth-child(-n+3)]:pt-0'
+      : '[&>*:nth-child(-n+2)]:border-t-0 [&>*:nth-child(-n+2)]:pt-0'
+  return (
+    <section className="rounded-2xl border border-line bg-surface/70 p-6 backdrop-blur-md">
+      {hasHeader && (
+        <div className="flex items-center gap-3">
+          {title && (
+            <h2 className="text-[11px] font-medium uppercase tracking-wider text-subtle">
+              {title}
+            </h2>
+          )}
+          {badge}
+        </div>
+      )}
+      <div
+        className={`grid gap-x-6 gap-y-5 ${firstRowFlat} ${hasHeader ? 'mt-5' : ''} ${
+          cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+        }`}
+      >
+        {children}
+      </div>
+    </section>
+  )
+}
+
+function Cell({
+  label,
+  children,
+  emphasize,
+}: {
+  label: string
+  children: ReactNode
+  emphasize?: boolean
+}) {
+  return (
+    <div className="space-y-1 border-t border-line pt-3">
+      <div className="text-[11px] uppercase tracking-wider text-subtle">{label}</div>
+      <div className={`text-lg font-semibold ${emphasize ? 'text-brand' : 'text-ink'}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 /** Read-only render of an affiliate's registry row. */
 export function AffiliateConfigCard({ config }: { config: AffiliateConfig }) {
   const reg = formatDateParts(Number(config.registeredAt))
+
   return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-3">
-        <h2 className="font-semibold text-ink">Configuration</h2>
-        {config.paused ? (
-          <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400 border border-rose-400/40 rounded px-1.5 py-0.5">
-            Paused
-          </span>
-        ) : (
-          <span className="text-[10px] font-mono uppercase tracking-wider text-brand border border-brand/40 rounded px-1.5 py-0.5">
-            Active
-          </span>
-        )}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Stat label="Fee recipient" value={config.feeRecipient} mono />
-        <Stat label="Registered" value={`${reg.date} ${reg.time}`} />
-        <Stat
-          label="Deposit fee"
-          value={`${formatBps(config.fees.depositBps)} + ${formatTrust(config.fees.depositFixedFee)} TRUST`}
-        />
-        <Stat
-          label="Creation fee"
-          value={`${formatBps(config.fees.creationBps)} + ${formatTrust(config.fees.creationFixedFee)} TRUST`}
-        />
-      </div>
-
-      <div className="text-xs text-subtle inline-flex items-center gap-2">
-        Recipient: <Address value={config.feeRecipient} variant="short" />
-      </div>
-    </section>
+    <Card cols={2}>
+      <Cell label="Fee recipient">
+        <Address value={config.feeRecipient} variant="short" />
+      </Cell>
+      <Cell label="Registered">{`${reg.date} ${reg.time}`}</Cell>
+      <Cell label="Deposit fee">
+        {`${formatBps(config.fees.depositBps)} + ${formatTrust(config.fees.depositFixedFee)} TRUST`}
+      </Cell>
+      <Cell label="Creation fee">
+        {`${formatBps(config.fees.creationBps)} + ${formatTrust(config.fees.creationFixedFee)} TRUST`}
+      </Cell>
+    </Card>
   )
 }
 
 /** Read-only render of an affiliate's aggregate analytics. */
 export function AffiliateStatsCard({ stats }: { stats: AffiliateStats }) {
   return (
-    <section className="space-y-4">
-      <h2 className="font-semibold text-ink">Analytics</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Transactions" value={stats.txCount.toString()} />
-        <Metric label="Unique users" value={stats.uniqueUsers.toString()} />
-        <Metric label="Total fees" value={`${formatTrust(stats.totalFees)} TRUST`} emphasize />
-        <Metric label="Gross routed" value={`${formatTrust(stats.totalGrossAssets)} TRUST`} />
-        <Metric label="Forwarded" value={`${formatTrust(stats.totalForwardedAssets)} TRUST`} />
-        <Metric label="Deposits" value={stats.depositCount.toString()} />
-        <Metric label="Atom/triple creations" value={stats.creationCount.toString()} />
-        <Metric label="Deposit fees" value={`${formatTrust(stats.depositFees)} TRUST`} />
-        <Metric label="Creation fees" value={`${formatTrust(stats.creationFees)} TRUST`} />
-      </div>
-    </section>
+    <div className="space-y-4">
+      <Card cols={3}>
+        <Cell label="Transactions">{stats.txCount.toString()}</Cell>
+        <Cell label="Unique users">{stats.uniqueUsers.toString()}</Cell>
+        <Cell label="Total fees" emphasize>
+          {`${formatTrust(stats.totalFees)} TRUST`}
+        </Cell>
+      </Card>
+      <Card cols={3}>
+        <Cell label="Gross routed">{`${formatTrust(stats.totalGrossAssets)} TRUST`}</Cell>
+        <Cell label="Forwarded">{`${formatTrust(stats.totalForwardedAssets)} TRUST`}</Cell>
+        <Cell label="Deposits">{stats.depositCount.toString()}</Cell>
+        <Cell label="Atom/triple creations">{stats.creationCount.toString()}</Cell>
+        <Cell label="Deposit fees">{`${formatTrust(stats.depositFees)} TRUST`}</Cell>
+        <Cell label="Creation fees">{`${formatTrust(stats.creationFees)} TRUST`}</Cell>
+      </Card>
+    </div>
   )
 }

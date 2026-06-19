@@ -13,8 +13,8 @@ import { Spinner } from '../components/Spinner'
 import { formatTrust } from '../lib/format'
 
 const EMPTY: FeeFields = {
-  depositBps: '0',
-  creationBps: '0',
+  depositPct: '0',
+  creationPct: '0',
   depositFixedFee: '0',
   creationFixedFee: '0',
 }
@@ -66,7 +66,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8">
       <header className="space-y-2">
         <div className="text-[11px] font-medium uppercase tracking-wider text-brand">
           Affiliate

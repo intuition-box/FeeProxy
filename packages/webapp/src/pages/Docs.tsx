@@ -1,7 +1,11 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 
+import { useFeeProxyAddress } from '../hooks/useFeeProxyAddress'
+import { CopyInline } from '../components/CopyInline'
+
 type SectionId =
+  | 'quickstart'
   | 'overview'
   | 'affiliate-model'
   | 'call-flow'
@@ -10,11 +14,13 @@ type SectionId =
   | 'refunds'
   | 'roles'
   | 'integration'
+  | 'agent'
 
 const GROUPS = [
   {
-    label: 'Introduction',
+    label: 'Get started',
     items: [
+      { id: 'quickstart' as SectionId, label: 'Quickstart' },
       { id: 'overview' as SectionId, label: 'Overview' },
       { id: 'affiliate-model' as SectionId, label: 'Affiliate model' },
     ],
@@ -33,6 +39,7 @@ const GROUPS = [
     items: [
       { id: 'roles' as SectionId, label: 'Roles & pause' },
       { id: 'integration' as SectionId, label: 'Integrate your dApp' },
+      { id: 'agent' as SectionId, label: 'AI agent prompt' },
     ],
   },
 ] as const
@@ -44,7 +51,7 @@ const ALL_IDS: ReadonlyArray<SectionId> = ALL_ITEMS.map((i) => i.id)
 
 export default function DocsPage() {
   const params = useParams<{ section?: SectionId }>()
-  const section = (params.section ?? 'overview') as SectionId
+  const section = (params.section ?? 'quickstart') as SectionId
 
   return (
     <div className="grid gap-12 md:grid-cols-[200px_1fr]">
@@ -55,6 +62,113 @@ export default function DocsPage() {
       </article>
     </div>
   )
+}
+
+/** Labeled copy button for the full agent guide. */
+function CopyGuideButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* noop */
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      className="inline-flex shrink-0 items-center gap-2 rounded-md border border-brand/40 bg-brand/5 px-3.5 py-2 text-xs font-medium text-brand transition-colors hover:bg-brand/10"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        {copied ? (
+          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <>
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </>
+        )}
+      </svg>
+      {copied ? 'Copied' : 'Copy full guide for an AI agent'}
+    </button>
+  )
+}
+
+/** Self-contained integration spec an agent can act on, with live addresses. */
+function buildAgentGuide({
+  feeProxy,
+  multiVault,
+  network,
+}: {
+  feeProxy: string
+  multiVault: string
+  network: 'mainnet' | 'testnet'
+}): string {
+  const chainId = network === 'mainnet' ? '1155' : '13579'
+  const rpc =
+    network === 'mainnet'
+      ? 'https://rpc.intuition.systems'
+      : 'https://testnet.rpc.intuition.systems'
+  return `# Intuition FeeProxy — integration guide for an AI coding agent
+
+You are wiring the Intuition FeeProxy into a dApp. This is the complete spec.
+
+## What it is
+FeeProxy is a single multi-tenant contract per network in front of the Intuition MultiVault.
+A dApp registers once as an affiliate, sets a fee schedule, and points the app at its affiliate
+address. On every routed deposit or atom/triple creation the proxy takes the affiliate fee,
+pushes it to the affiliate's recipient, and forwards the rest to the MultiVault. No per-dApp
+deployment, no fee pool, no withdraw — fees are pushed at routing time.
+
+## Addresses (Intuition ${network}, chainId ${chainId})
+- FeeProxy singleton: ${feeProxy}
+- MultiVault: ${multiVault}
+- RPC: ${rpc}
+- My affiliate id: <YOUR_AFFILIATE_WALLET_ADDRESS>
+
+## Affiliate model
+- One affiliate row per wallet (affiliate = msg.sender at registration).
+- register: registerAffiliate(FeeConfig fees, address feeRecipient) payable (send registrationFee in native TRUST).
+- manage: updateAffiliateFees(FeeConfig), updateFeeRecipient(address).
+
+## Fees & caps
+FeeConfig { uint256 depositBps; uint256 creationBps; uint256 depositFixedFee; uint256 creationFixedFee }
+- bps base 10000 (250 = 2.5%); fixed fees in TRUST wei.
+- per-call fee = grossAssets * bps / 10000 + fixedFee.
+- protocol caps maxBps / maxFixedFee; a config over cap reverts.
+
+## Routing (what your dApp calls)
+function depositVia(address affiliate, address receiver, bytes32 termId, uint256 curveId,
+  uint256 grossAssets, uint256 minShares,
+  (uint256 maxFeeBps, uint256 maxFixedFee) feeGuard) payable returns (uint256 shares)
+Also available, same affiliate-first shape: depositBatchVia, createAtomsVia, createTriplesVia.
+FeeGuard is front-run protection: if the affiliate's live fee exceeds it at execution, the tx reverts.
+Size it from previewDepositFee(affiliate, grossAssets) plus a small tolerance.
+
+## Approvals (prerequisite)
+Routing acts on the MultiVault on behalf of the receiver/creator. Before the first routed call the
+account must approve the FeeProxy on the MultiVault:
+- check MultiVault.isApprovedToDeposit(receiver, feeProxy) / isApprovedToCreate(creator, feeProxy)
+- if false: MultiVault.approve(feeProxy, ApprovalTypes) where DEPOSIT=1, CREATION=4 (NONE=0, BOTH=3).
+Otherwise routing reverts with FeeProxy_ProxyNotApprovedForDeposit / ...ForCreation.
+
+## Refunds
+Excess msg.value is push-refunded; on failure it is credited to pendingRefund(user), claimable via
+claimRefund() / claimRefundTo(recipient).
+
+## Roles (Intuition-held, not affiliates)
+AccessControl: DEFAULT_ADMIN_ROLE (caps, registrationFee, unpause, role grants) and PAUSER_ROLE
+(global pause + per-affiliate pauseAffiliate). Affiliates only manage their own row.
+
+## Task
+With viem + wagmi (TypeScript), implement depositViaAffiliate(receiver, termId, curveId, grossAssets, minShares):
+1. Ensure receiver approved feeProxy on the MultiVault (approve with DEPOSIT=1 if not).
+2. previewDepositFee(affiliate, grossAssets) -> build a FeeGuard { maxFeeBps, maxFixedFee } with a small tolerance.
+3. depositVia(affiliate, receiver, termId, curveId, grossAssets, minShares, feeGuard) with value = grossAssets.
+Keep it minimal, typed, and production-safe. Ask me for the FeeProxy / MultiVault ABIs if you need them.`
 }
 
 function Sidebar({ active }: { active: SectionId }) {
@@ -93,6 +207,8 @@ function Sidebar({ active }: { active: SectionId }) {
 
 function SectionContent({ id }: { id: SectionId }) {
   switch (id) {
+    case 'quickstart':
+      return <Quickstart />
     case 'overview':
       return <Overview />
     case 'affiliate-model':
@@ -109,6 +225,8 @@ function SectionContent({ id }: { id: SectionId }) {
       return <Roles />
     case 'integration':
       return <Integration />
+    case 'agent':
+      return <AgentPrompt />
   }
 }
 
@@ -161,29 +279,108 @@ function Code({ children }: { children: ReactNode }) {
   return <code className="font-mono text-ink text-[0.9em]">{children}</code>
 }
 
+/** Code block with a copy affordance. Children are expected to be a string. */
 function Block({ children }: { children: ReactNode }) {
+  const text = typeof children === 'string' ? children : ''
   return (
-    <pre className="rounded-lg border border-line bg-canvas p-4 text-[12px] font-mono text-ink overflow-x-auto leading-relaxed">
-      {children}
-    </pre>
+    <div className="relative my-2">
+      {text && (
+        <div className="absolute right-2 top-2">
+          <CopyInline value={text} />
+        </div>
+      )}
+      <pre className="overflow-x-auto rounded-lg border border-line bg-canvas p-4 pr-10 text-[12px] font-mono leading-relaxed text-ink">
+        {children}
+      </pre>
+    </div>
   )
 }
 
 function Callout({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="my-6 rounded-lg border-l-4 border-l-brand border border-line bg-surface p-4 text-sm">
-      <div className="font-medium text-ink mb-1">{title}</div>
-      <div className="text-muted leading-relaxed">{children}</div>
+    <div className="my-6 rounded-lg border border-line border-l-4 border-l-brand bg-surface p-4 text-sm">
+      <div className="mb-1 font-medium text-ink">{title}</div>
+      <div className="leading-relaxed text-muted">{children}</div>
     </div>
+  )
+}
+
+function Steps({ children }: { children: ReactNode[] }) {
+  return (
+    <ol className="space-y-4">
+      {children.map((step, i) => (
+        <li key={i} className="flex gap-3">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-brand/40 font-mono text-[11px] text-brand">
+            {i + 1}
+          </span>
+          <div className="text-sm leading-relaxed text-muted">{step}</div>
+        </li>
+      ))}
+    </ol>
   )
 }
 
 // ---- sections ----
 
+function Quickstart() {
+  const { feeProxy, multiVault, network, configured } = useFeeProxyAddress()
+  const guide = buildAgentGuide({
+    feeProxy: configured ? feeProxy : '<FEEPROXY_SINGLETON_ADDRESS>',
+    multiVault,
+    network,
+  })
+  return (
+    <div className="space-y-5">
+      <PageHeader kicker="Get started" title="Quickstart" />
+      <P>Four steps from zero to routing fees through your affiliate.</P>
+      <Steps>
+        {[
+          <>
+            Connect your wallet on the <strong className="text-ink">Intuition testnet</strong>{' '}
+            (chain 13579).
+          </>,
+          <>
+            <Link to="/register" className="text-brand underline decoration-brand/50">
+              Register
+            </Link>{' '}
+            — set your deposit/creation fees (in %) and a fee recipient, then submit. You only
+            pay gas plus the protocol&apos;s registration fee.
+          </>,
+          <>
+            Open{' '}
+            <Link to="/me" className="text-brand underline decoration-brand/50">
+              My affiliate → Integration
+            </Link>{' '}
+            and copy the singleton address, your affiliate id, and the{' '}
+            <Code>depositVia</Code> snippet.
+          </>,
+          <>
+            In your dApp, make sure the receiver has approved the FeeProxy on the MultiVault,
+            then call <Code>depositVia(yourAffiliate, …)</Code>. Fees flow to your recipient and
+            your dashboard tracks every routed call.
+          </>,
+        ]}
+      </Steps>
+      <Callout title="Fastest path — hand it to an AI agent">
+        Copy the whole integration spec (live addresses, <Code>depositVia</Code> signature, fee
+        math, approval flow) and paste it into your coding agent (Claude Code, Cursor, …) — it
+        scaffolds the integration for you. Same content as the{' '}
+        <Link to="/docs/agent" className="text-brand underline decoration-brand/50">
+          AI agent prompt
+        </Link>{' '}
+        section.
+        <div className="mt-3">
+          <CopyGuideButton text={guide} />
+        </div>
+      </Callout>
+    </div>
+  )
+}
+
 function Overview() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Introduction" title="Overview" />
+      <PageHeader kicker="Get started" title="Overview" />
       <P>
         FeeProxy is a single multi-tenant contract per network that sits in
         front of the Intuition MultiVault. Any dApp builder registers once as an
@@ -193,9 +390,8 @@ function Overview() {
         and forwards the rest to the MultiVault.
       </P>
       <P>
-        There is no per-dApp deployment, no upgradeable proxy, no fee pool, and
-        no withdraw step. The contract holds no affiliate balance: fees are
-        pushed at routing time.
+        There is no per-dApp deployment, no fee pool, and no withdraw step. The
+        contract holds no affiliate balance: fees are pushed at routing time.
       </P>
     </div>
   )
@@ -204,7 +400,7 @@ function Overview() {
 function AffiliateModel() {
   return (
     <div className="space-y-5">
-      <PageHeader kicker="Introduction" title="Affiliate model" />
+      <PageHeader kicker="Get started" title="Affiliate model" />
       <P>
         Each wallet keys at most one affiliate row, keyed by its own address —{' '}
         <Code>affiliate = msg.sender</Code> at registration. You manage your own
@@ -247,8 +443,9 @@ MultiVault.deposit(...)                  // position minted to receiver`}</Block
       <P>
         The caller passes a <Code>FeeGuard {`{ maxFeeBps, maxFixedFee }`}</Code>{' '}
         as front-run protection: if the affiliate&apos;s live fee exceeds the
-        guard at execution time, the tx reverts. Build it from the
-        affiliate&apos;s live fees with the SDK&apos;s <Code>buildFeeGuard</Code>.
+        guard at execution time, the tx reverts. Size it from the affiliate&apos;s
+        live fees via <Code>previewDepositFee(affiliate, grossAssets)</Code> plus
+        a small tolerance.
       </P>
     </div>
   )
@@ -287,7 +484,8 @@ function FeesCaps() {
         A fee schedule is{' '}
         <Code>{`FeeConfig { depositBps, creationBps, depositFixedFee, creationFixedFee }`}</Code>.
         bps use a base of 10000 (so 250 = 2.5%); fixed fees are in TRUST wei. The
-        per-call fee is <Code>grossAssets * bps / 10000 + fixedFee</Code>.
+        per-call fee is <Code>grossAssets * bps / 10000 + fixedFee</Code>. (The
+        app lets you enter the bps as a human percentage.)
       </P>
       <P>
         Protocol admins set global maxima: <Code>maxBps</Code> and{' '}
@@ -377,6 +575,37 @@ const shares = await writeContract(config, {
         <Code>useReadContract</Code>. A published SDK with fee-math helpers and
         non-wagmi readers ships later.
       </P>
+    </div>
+  )
+}
+
+function AgentPrompt() {
+  const { feeProxy, multiVault, network, configured } = useFeeProxyAddress()
+  const guide = buildAgentGuide({
+    feeProxy: configured ? feeProxy : '<FEEPROXY_SINGLETON_ADDRESS>',
+    multiVault,
+    network,
+  })
+
+  return (
+    <div className="space-y-5">
+      <PageHeader kicker="Reference" title="AI agent prompt" />
+      <P>
+        The full integration spec as one copy-paste block. Paste it into your AI coding agent
+        (Claude Code, Cursor, …) and it scaffolds a minimal, correct integration — it carries
+        the live <strong className="text-ink">Intuition testnet</strong> addresses, the{' '}
+        <Code>depositVia</Code> signature, the fee math, and the one-time approval flow. (Same
+        as the “Copy full guide” button at the top.)
+      </P>
+      <Block>{guide}</Block>
+      <Callout title="Swap in your affiliate id">
+        Replace <Code>{'<YOUR_AFFILIATE_WALLET_ADDRESS>'}</Code> with the wallet you registered
+        — it&apos;s shown on{' '}
+        <Link to="/me" className="text-brand underline decoration-brand/50">
+          My affiliate → Integration
+        </Link>
+        .
+      </Callout>
     </div>
   )
 }

@@ -26,7 +26,7 @@ export default function AffiliateDetailPage() {
 
   if (!valid) {
     return (
-      <div className="max-w-2xl space-y-4">
+      <div className="mx-auto max-w-2xl space-y-4">
         <p className="text-sm text-rose-400 font-mono">Invalid affiliate address.</p>
         <Link to="/affiliates" className="text-sm text-brand underline">
           ← Back to affiliates
@@ -36,7 +36,7 @@ export default function AffiliateDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
       <header className="space-y-2">
         <Link to="/affiliates" className="text-xs text-muted hover:text-ink transition-colors">
           ← Affiliates

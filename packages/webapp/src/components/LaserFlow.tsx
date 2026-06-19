@@ -427,6 +427,10 @@ export const LaserFlow = ({
     }
 
     setSizeNow()
+    // First-paint robustness: re-measure over the first frames so the beam
+    // renders as soon as the container has its real height (no long blank wait).
+    const sizeRetryRaf = requestAnimationFrame(setSizeNow)
+    const sizeRetryTimers = [60, 180, 400, 800].map((ms) => setTimeout(setSizeNow, ms))
     const ro = new ResizeObserver(scheduleResize)
     ro.observe(mount)
 
@@ -434,7 +438,10 @@ export const LaserFlow = ({
       (entries) => {
         inViewRef.current = entries[0]?.isIntersecting ?? true
       },
-      { root: null, threshold: 0 },
+      // Generous margin: the beam sits at the top of the page, so keep it
+      // "in view" even before layout settles — otherwise a 0-height first
+      // measurement reports not-intersecting and freezes the fade-in.
+      { root: null, threshold: 0, rootMargin: '600px' },
     )
     io.observe(mount)
 
@@ -551,6 +558,8 @@ export const LaserFlow = ({
 
     return () => {
       cancelAnimationFrame(raf)
+      cancelAnimationFrame(sizeRetryRaf)
+      sizeRetryTimers.forEach(clearTimeout)
       ro.disconnect()
       io.disconnect()
       document.removeEventListener('visibilitychange', onVis)
