@@ -36,11 +36,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Call flow, descended below the hero */}
-      <section className="space-y-4">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-brand">
-          How it works
-        </div>
+      {/* Call flow, descended below the hero (label removed, position kept) */}
+      <section className="pt-8">
         <CallFlow />
       </section>
     </div>
@@ -80,8 +77,8 @@ function CallFlow() {
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-4 md:gap-0">
         <FlowNode
           icon={<WalletIcon />}
-          title="User / dApp"
-          subtitle="depositVia(affiliate, …)"
+          title="App"
+          subtitle=""
           body="Routes a deposit through your affiliate address."
         />
         <FlowArrow />
@@ -89,7 +86,7 @@ function CallFlow() {
           variant="fee"
           icon={<ProxyIcon />}
           title="FeeProxy"
-          subtitle="singleton"
+          subtitle=""
           badge="FEE"
           body="Takes your configured fee, pushes it to your fee recipient, forwards the rest."
         />
@@ -97,7 +94,7 @@ function CallFlow() {
         <FlowNode
           icon={<VaultIcon />}
           title="MultiVault"
-          subtitle="Intuition core"
+          subtitle=""
           body="Executes the deposit; mints the position to the user."
         />
       </div>
