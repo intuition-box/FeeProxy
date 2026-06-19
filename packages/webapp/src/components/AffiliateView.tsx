@@ -24,7 +24,7 @@ function Card({
       ? '[&>*:nth-child(-n+3)]:border-t-0 [&>*:nth-child(-n+3)]:pt-0'
       : '[&>*:nth-child(-n+2)]:border-t-0 [&>*:nth-child(-n+2)]:pt-0'
   return (
-    <section className="rounded-2xl border border-brand/25 bg-surface/70 p-6 backdrop-blur-md shadow-[0_0_60px_-15px_rgba(240,122,63,0.35)]">
+    <section className="rounded-2xl border border-line bg-surface/70 p-6 backdrop-blur-md">
       {hasHeader && (
         <div className="flex items-center gap-3">
           {title && (
