@@ -31,30 +31,21 @@ jobs:
       - name: Install workspace deps
         run: bun install --frozen-lockfile
 
-      - name: Compile contracts (produces artifacts + ABIs)
-        # ABIs are .gitignore'd — the SDK imports `./abis/*.json`, which
-        # only exist after hardhat compile + sync-abis. Without this step
-        # the next job fails with TS2307 "Cannot find module './abis/...'".
-        run: bun contracts:compile
-
-      - name: Sync compiled ABIs into the SDK
-        run: bun sdk:sync
-
-      - name: Build SDK (generates dist/ consumed by the webapp)
-        run: bun sdk:build
-
       - name: Build webapp for Pages
         env:
           # Must match the repo name so assets resolve under
           # `https://<user>.github.io/<repo>/…`. Trailing slash is important.
           VITE_BASE: /Intuition-Proxy-Factory/
+        # The webapp is self-contained (vendored ABI in src/contracts/) — no
+        # contracts compile / SDK build needed. `webapp:build` runs `tsc -b`
+        # then `vite build`, so this step also typechecks the app.
         run: bun webapp:build
 
       - name: SPA fallback — copy index.html to 404.html
-        # GitHub Pages has no server-side rewrites. When a user hits
-        # `/proxy/0xABC…` directly (deep link or refresh), GH serves 404.html.
-        # Making 404.html identical to index.html lets the React Router boot
-        # normally and resolve the route client-side.
+        # GitHub Pages has no server-side rewrites. When a user hits a deep
+        # link (e.g. `/affiliate/0xABC…`) or refreshes, GH serves 404.html.
+        # Making 404.html identical to index.html lets React Router boot and
+        # resolve the route client-side.
         run: cp packages/webapp/dist/index.html packages/webapp/dist/404.html
 
       - name: Upload Pages artifact

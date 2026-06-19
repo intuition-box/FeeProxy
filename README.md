@@ -1,141 +1,81 @@
-# Intuition Proxy Factory
+# Intuition Fee Proxy — Affiliate webapp
 
-![solidity](https://img.shields.io/badge/solidity-0.8.21-blue) ![openzeppelin](https://img.shields.io/badge/openzeppelin-v5-blue) ![ERC-7936](https://img.shields.io/badge/ERC--7936-versioned%20proxy-orange) ![ERC-7201](https://img.shields.io/badge/ERC--7201-namespaced%20storage-orange) ![ERC-1967](https://img.shields.io/badge/ERC--1967-proxy%20slots-orange) ![UUPS](https://img.shields.io/badge/UUPS-upgradeable-orange) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![react](https://img.shields.io/badge/React-18-blue) ![vite](https://img.shields.io/badge/Vite-5-blue) ![typescript](https://img.shields.io/badge/TypeScript-5-blue) ![wagmi](https://img.shields.io/badge/wagmi%20v2-viem-orange) ![tailwind](https://img.shields.io/badge/Tailwind-3-orange) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Monorepo for a versioned, upgradeable fee proxy on top of the [Intuition](https://intuition.systems) MultiVault, with a permissionless Factory for one-click deployment and a web UI to manage individual proxies (fees, admins, versions, metrics).
+A web UI for the **Intuition FeeProxy singleton** — a multi-tenant fee layer in front of the [Intuition](https://intuition.systems) MultiVault. Any dApp builder registers once as an **affiliate**, sets a fee schedule, and points their app at their affiliate address; the proxy takes their fee on every routed deposit / atom creation, pushes it straight to their recipient, and forwards the rest to the MultiVault.
 
-## What this gives you
+> The contract is Intuition's audited singleton (`0xIntuition/intuition-contracts-v2`, `src/periphery/FeeProxy.sol`). This repo is the **webapp** and works against its ABI — there is no Factory, no per-affiliate deployment, no fee pool, and no withdraw step. Fees are pushed at routing time.
 
-- **A versioned fee-proxy contract** (ERC-7936 pattern) that routes every call through a pinned logic implementation, collects fees in-contract, and lets a proxy admin ship new logic versions without displacing the ones users already trust.
-- **A permissionless Factory** so anyone can deploy their own proxy in a single transaction.
-- **A webapp** with wallet connect, deploy form, per-proxy detail page, full light/dark docs — designed for web3 infra operators, not a landing template.
-- **On-chain metrics** baked into the implementation: total atoms, triples, deposits, volume, unique users, last-activity block — aggregated every call and exposed via `getMetrics()` for dashboards.
+## The model in one minute
+
+- **One contract per network.** Everyone uses the same FeeProxy; there's nothing to deploy per affiliate.
+- **Your wallet is your affiliate id.** `registerAffiliate(fees, feeRecipient)` keys one row by `msg.sender` (pays a small TRUST registration fee to the treasury).
+- **Fees are push, instant.** On every `depositVia` / `createAtomsVia` the affiliate fee is sent to the recipient immediately — no accumulate/withdraw.
+- **Fee schedule = `{ depositBps, creationBps, depositFixedFee, creationFixedFee }`**, capped by protocol-level `maxBps` / `maxFixedFee`. The app lets you enter the bps as a human percentage.
+- **Metrics are on-chain & free.** `affiliateStats` (txCount, unique users, volume, fees, deposit/creation split) — read directly, no indexer.
+
+## What the webapp does
+
+| Page | Purpose |
+|---|---|
+| **Home** | Pitch + live network stats (affiliates, funds routed, fees, txs) |
+| **Register** | Become an affiliate: set fees (%) + recipient, pay the registration fee |
+| **My affiliate** | Your dashboard — `Analytics` (stats + activity feed via event `getLogs`), `Integration` (copy-paste `depositVia` snippet + your id), `Config` (edit fees / recipient) |
+| **Affiliates** | Directory of every registered affiliate (from `AffiliateRegistered` logs) |
+| **Affiliate detail** | Public read-only view of any affiliate |
+| **Docs** | Concepts + a one-click **"Copy full guide for an AI agent"** to scaffold a dApp integration |
+
+## Live deployment
+
+- **Network:** Intuition testnet (chain `13579`, RPC `https://testnet.rpc.intuition.systems`)
+- **FeeProxy singleton:** `0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792`
+
+The app reads addresses from `packages/webapp/src/contracts/` and accepts a per-machine override via `.env.local` (below).
 
 ## Structure
 
 ```
 intuition-fee-proxy-template/
 ├── packages/
-│   ├── contracts/   # Solidity — V2 + V2Sponsored + Factory + ERC-7936 versioned proxy
-│   ├── sdk/         # Shared ABIs, addresses, chains, canonical-version registry, readers
-│   └── webapp/      # Vite + React UI — deploy / my-proxies / explore / proxy-detail / docs
-├── scripts/
-│   └── sync-abis.ts # Copy compiled ABIs to SDK after contracts change
-└── .claude/         # Project context, rules, and skills (see .claude/README.md)
+│   ├── webapp/      # Vite + React UI (the product) — pages above, vendored ABI in src/contracts/
+│   ├── sdk/         # Legacy shared ABIs/readers (factory era) — webapp is decoupled; reintegrated later
+│   └── safe-tx/     # Legacy Safe tooling (factory era)
+└── .claude/         # Project context, decisions, rules (see .claude/README.md)
 ```
 
-## Requirements
+## Install & run
 
-- [Bun](https://bun.sh) (package manager + runtime)
-- Node.js 20+ (for Hardhat compatibility — Node 18 works with warnings)
-
-## Install
+Requires [Bun](https://bun.sh).
 
 ```bash
 bun install
+bun run webapp:dev        # http://localhost:5173
+bun run webapp:build      # production build
+bun run webapp:preview     # preview the build
+# typecheck just the webapp:
+bun --filter @intuition-fee-proxy/webapp typecheck
 ```
 
-## Common commands
+## Configuration
+
+Point the webapp at a deployed FeeProxy via a gitignored `packages/webapp/.env.local`:
 
 ```bash
-# Contracts
-bun contracts:compile                  # hardhat compile
-bun contracts:test                     # hardhat test (V1 + V2 + V2Sponsored + Factory + Versioned)
-bun contracts:node                     # local hardhat node on :8545
-bun contracts:deploy:local             # deploy full stack on local node (writes webapp/.env.local)
-bun contracts:deploy:testnet           # Intuition testnet (chainId 13579)
-bun contracts:deploy:mainnet           # Intuition mainnet (chainId 1155)
-bun contracts:e2e:local                # end-to-end standard lifecycle
-bun contracts:e2e:sponsored:local      # end-to-end sponsored-pool lifecycle
-bun contracts:deploy:v3mock:local      # deploy a mock new-version impl for manual UX testing
-
-# SDK
-bun sdk:sync                       # copy compiled ABIs from contracts/ into sdk/
-
-# Webapp
-bun webapp:dev                     # http://localhost:3000
-bun webapp:build                   # production build
-bun webapp:preview                 # preview production build
+VITE_FEEPROXY_ADDRESS=0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792
+VITE_MULTIVAULT_ADDRESS=0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91
 ```
 
-## Local testing flow (3 terminals)
+Without it, the app reads the per-network defaults in `src/contracts/addresses.ts` and degrades gracefully to a "not configured" state when the address is unset.
 
-```bash
-# Terminal 1
-bun contracts:node
+## Status
 
-# Terminal 2
-bun contracts:deploy:local          # also writes packages/webapp/.env.local
-
-# Terminal 3
-bun webapp:dev
-```
-
-MetaMask → add `http://127.0.0.1:8545`, chainId `31337`, import one of the hardhat test keys printed by `contracts:node`. Account #0 is the factory deployer/owner; the MockMultiVault address on a fresh node is always `0x5FbDB2315678afecb367f032d93F642f64180aa3`.
-
-End-to-end validation (optional but recommended):
-
-```bash
-bun contracts:e2e:local
-```
-
-Walks the full lifecycle — Factory `createProxy` → user deposits → `registerVersion` + `setDefaultVersion` → `executeAtVersion` pinning → `withdrawAll` — and prints a metrics snapshot at each step.
-
-## Architecture in one sentence
-
-A **Factory** deploys a versioned **proxy** that `delegatecall`s a pinned **implementation**, which reads/writes the proxy's storage and forwards ETH to the Intuition MultiVault. Admins register new implementations; users either follow the default or pin their own via `executeAtVersion`.
-
-Full explanation at `/docs` in the running webapp.
+- ✅ Affiliate surface (register, edit fees/recipient, stats, dashboard, docs) — live against the testnet FeeProxy.
+- ⏳ **End-to-end fee routing** (`depositVia` / `createAtomsVia`) needs the MultiVault on-behalf-of surface (`isApprovedToDeposit/Create`, `createAtomsFor`). The current testnet MultiVault predates it, so routing reverts until Intuition deploys the patched MultiVault on testnet. The FeeProxy and the webapp are ready; nothing to recode.
+- The end-user deposit flow and approval revocation are a deferred side quest (one `MultiVault.approve(feeProxy, NONE)` call, already supported).
 
 ## Project context
 
-The [.claude/](./.claude/) directory holds the planning, architecture, rules, and skill playbooks:
-
-- [.claude/README.md](./.claude/README.md) — index
-- [.claude/08-rules.md](./.claude/08-rules.md) — project rules (design, copy, code, storage)
-- [.claude/09-skills.md](./.claude/09-skills.md) — step-by-step playbooks (ship a new version, local test, etc.)
-
-## Security
-
-**The codebase has not been audited.** 
-
-What has been done is **two internal security-review passes** (self-review guided by Trail of Bits' [Building Secure Contracts](https://github.com/crytic/building-secure-contracts) checklist, plus static analysis) it's documented here for transparency.
-
-### Trust model (what the admin can and can't do)
-
-| Role | Holder (recommended) | Powers | Limits |
-|---|---|---|---|
-| `proxyAdmin` (per-proxy) | Safe multisig (M-of-N, M ≥ 3) | Register new impl versions, switch default, rename, transfer admin (2-step) | Cannot raise fees above `MAX_FEE_PERCENTAGE = 10%` / `MAX_FIXED_FEE = 10 TRUST` without registering a new reviewed impl (bytecode constants). **Can change what fallback callers receive by activating a new default version** — see "Default-version trust" below. |
-| Factory `owner` | Project Safe multisig | Update the default impl used for FUTURE deployments, UUPS-upgrade the Factory, rotate ownership (2-step via `Ownable2Step`) | Existing proxies untouched — each carries its own `proxyAdmin`. |
-| `whitelistedAdmin` | Per-proxy operator | Adjust fees (bounded 0–10%), add/remove admins, withdraw accumulated fees, fund/reclaim sponsor pool | Cannot mint shares on behalf of users in the **current** impls (every write path forces `receiver = msg.sender`). Cannot drain the sponsor pool via the fee-withdraw path: `withdraw` / `withdrawAll` only touch `accumulatedFees`, `reclaimFromPool` only touches `sponsorPool` — the two counters are accounted separately. |
-
-### Default-version trust (the honest version)
-
-The MultiVault does **not** enforce `receiver == msg.sender`. It enforces `receiver == msg.sender || approvals[receiver][msg.sender] & DEPOSIT != 0`. From the MultiVault's point of view, `msg.sender` is always the proxy contract — never the EOA.
-
-The current `IntuitionFeeProxyV2` impl always passes the EOA caller as `receiver`. This is enforced **by the impl's bytecode**, not by the MultiVault. A future logic version registered by `proxyAdmin` and activated via `setDefaultVersion` could legally pass any address that has approved the proxy on the MultiVault — including an admin-controlled treasury.
-
-The defense is layered:
-
-1. **`proxyAdmin` is a Safe multisig.** Switching the default requires M-of-N signatures. We recommend M ≥ 3 with diverse signers.
-2. **Pin a specific version to be immune.** Users who never want to be exposed to default-version changes can call `executeAtVersion(versionTheyTrust, calldata)` instead of using the fallback. The pinned version's bytecode never changes.
-3. **Revoke `MultiVault.approve(proxy, DEPOSIT)` when idle.** A user with no standing approval cannot have funds redirected — every deposit re-grants approval scoped to that single tx (or via a multicall pattern: approve → deposit → revoke). We recommend this for any user not actively transacting.
-
-If all three defenses are bypassed simultaneously (Safe compromised + user not pinned + standing MV approval), the worst case is that the user's in-flight `msg.value` for new fallback calls gets routed to an admin-controlled receiver. **Existing minted shares are not at risk** — those require a separate `REDEMPTION` approval that the proxy does not request.
-
-
-### Defensive guarantees in the code
-
-- `ReentrancyGuard` on every payable entry + all withdraw paths (including the 4 Sponsored overrides)
-- Inverse-formula `deposit()` splits `msg.value` exactly (no refund leak)
-- `_refundExcess` returns overpayment on `createAtoms` / `createTriples` / `depositBatch`
-- `withdraw` / `withdrawAll` are capped at `accumulatedFees`; `reclaimFromPool` is capped at `sponsorPool` — separate counters keep fee withdraws away from the sponsor pool
-- ERC-7201 namespaced storage on VersionedFeeProxy + V2Sponsored (no slot collision)
-- `_disableInitializers()` on all upgradeable impls
-- Last-admin self-revoke guard (V1 + V2)
-- 2-step ownership transfer on Factory (`Ownable2Step`) and VersionedFeeProxy (`pendingProxyAdmin` / `acceptProxyAdmin`)
-- `uint128`-bounded `setClaimLimits` to prevent silent truncation
-- No `receive()` / `fallback()` that blindly accepts ETH — direct transfers revert
+The [.claude/](./.claude/) directory holds the planning, architecture decisions, and rules — see [.claude/README.md](./.claude/README.md). The legacy Factory/V2 history is preserved on the `v2-upgradeable-factory` branch and the `factory-final` tag.
 
 ## License
 
