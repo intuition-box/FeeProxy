@@ -20,7 +20,9 @@ function Card({
   // Drop the hairline on the first row so it never sits at the card's top edge;
   // inner rows keep their top border as a separator.
   const firstRowFlat =
-    cols === 3 ? '[&>*:nth-child(-n+3)]:border-t-0' : '[&>*:nth-child(-n+2)]:border-t-0'
+    cols === 3
+      ? '[&>*:nth-child(-n+3)]:border-t-0 [&>*:nth-child(-n+3)]:pt-0'
+      : '[&>*:nth-child(-n+2)]:border-t-0 [&>*:nth-child(-n+2)]:pt-0'
   return (
     <section className="rounded-2xl border border-brand/25 bg-surface/70 p-6 backdrop-blur-md shadow-[0_0_60px_-15px_rgba(240,122,63,0.35)]">
       {hasHeader && (
