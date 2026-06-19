@@ -13,8 +13,8 @@ import { Spinner } from '../components/Spinner'
 import { formatTrust } from '../lib/format'
 
 const EMPTY: FeeFields = {
-  depositBps: '0',
-  creationBps: '0',
+  depositPct: '0',
+  creationPct: '0',
   depositFixedFee: '0',
   creationFixedFee: '0',
 }

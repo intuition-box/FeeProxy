@@ -3,17 +3,39 @@ import type { FeeConfig } from '../contracts'
 import { formatBps, formatTrust } from '../lib/format'
 
 export type FeeFields = {
-  depositBps: string
-  creationBps: string
+  /** Percentage fees entered as a human percent (e.g. "1.5" = 1.5%). */
+  depositPct: string
+  creationPct: string
   /** Fixed fees entered as a decimal TRUST amount (converted to wei). */
   depositFixedFee: string
   creationFixedFee: string
 }
 
+/**
+ * Convert a human percentage string to on-chain bps (basis points, base 10000).
+ * "1" → 100, "2.5" → 250, "0.05" → 5. Max 2 decimals (1 bps = 0.01%).
+ */
+function pctToBps(pct: string): bigint {
+  const t = (pct || '0').trim()
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) {
+    throw new Error(`Invalid percentage "${pct}" — use up to 2 decimals (e.g. 1.5)`)
+  }
+  return BigInt(Math.round(parseFloat(t) * 100))
+}
+
+/** Convert on-chain bps to a clean percentage string. 250 → "2.5", 5 → "0.05". */
+function bpsToPct(bps: bigint): string {
+  const whole = bps / 100n
+  const frac = bps % 100n
+  if (frac === 0n) return whole.toString()
+  const fracStr = frac.toString().padStart(2, '0').replace(/0$/, '')
+  return `${whole}.${fracStr}`
+}
+
 /** Parse the string form fields into an on-chain `FeeConfig` (bigints). */
 export function parseFeeFields(f: FeeFields): FeeConfig {
-  const depositBps = BigInt(f.depositBps || '0')
-  const creationBps = BigInt(f.creationBps || '0')
+  const depositBps = pctToBps(f.depositPct)
+  const creationBps = pctToBps(f.creationPct)
   const depositFixedFee = parseEther((f.depositFixedFee || '0').trim())
   const creationFixedFee = parseEther((f.creationFixedFee || '0').trim())
   return { depositBps, creationBps, depositFixedFee, creationFixedFee }
@@ -22,8 +44,8 @@ export function parseFeeFields(f: FeeFields): FeeConfig {
 /** Build editable string fields from an on-chain `FeeConfig`. */
 export function feeFieldsFrom(fees: FeeConfig): FeeFields {
   return {
-    depositBps: fees.depositBps.toString(),
-    creationBps: fees.creationBps.toString(),
+    depositPct: bpsToPct(fees.depositBps),
+    creationPct: bpsToPct(fees.creationBps),
     depositFixedFee: formatTrust(fees.depositFixedFee),
     creationFixedFee: formatTrust(fees.creationFixedFee),
   }
@@ -38,7 +60,8 @@ interface Props {
 
 /**
  * Shared fee-schedule editor used by registration and fee-update flows.
- * bps are integers (base 10000); fixed fees are entered in TRUST.
+ * Percentages are entered as human percents and converted to bps on submit;
+ * fixed fees are entered in TRUST.
  */
 export function FeeConfigFields({ fields, onChange, maxBps, maxFixedFee }: Props) {
   const set = (key: keyof FeeFields) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -46,7 +69,7 @@ export function FeeConfigFields({ fields, onChange, maxBps, maxFixedFee }: Props
 
   const capHint =
     maxBps !== undefined
-      ? `Caps: max ${maxBps.toString()} bps (${formatBps(maxBps)})${
+      ? `Caps: max ${formatBps(maxBps)}${
           maxFixedFee !== undefined ? `, max ${formatTrust(maxFixedFee)} TRUST fixed` : ''
         }`
       : null
@@ -56,17 +79,17 @@ export function FeeConfigFields({ fields, onChange, maxBps, maxFixedFee }: Props
       <div className="text-xs text-subtle">Fee schedule{capHint ? ` — ${capHint}` : ''}</div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          label="Deposit bps"
-          hint="base 10000"
-          value={fields.depositBps}
-          onChange={set('depositBps')}
+          label="Deposit fee (%)"
+          hint="e.g. 1.5 for 1.5%"
+          value={fields.depositPct}
+          onChange={set('depositPct')}
           mono
         />
         <Field
-          label="Creation bps"
-          hint="base 10000"
-          value={fields.creationBps}
-          onChange={set('creationBps')}
+          label="Creation fee (%)"
+          hint="e.g. 1.5 for 1.5%"
+          value={fields.creationPct}
+          onChange={set('creationPct')}
           mono
         />
         <Field
