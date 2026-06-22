@@ -15,11 +15,13 @@ export type NetworkName = 'mainnet' | 'testnet'
 
 export const MULTIVAULT_ADDRESSES = {
   mainnet: '0x6E35cF57A41fA15eA0EaE9C33e751b01A784Fe7e',
-  testnet: '0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91',
+  // Upgraded testnet MultiVault (on-behalf-of / createAtomsFor surface).
+  testnet: '0xeC6BdEb8BCc083ceCc1E73efDd463Be4443AbD9d',
 } as const satisfies Record<NetworkName, `0x${string}`>
 
 export const FEEPROXY_ADDRESSES = {
   mainnet: '0x0000000000000000000000000000000000000000',
-  // Deployed FeeProxy singleton on the Intuition testnet (chain 13579).
-  testnet: '0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792',
+  // Intuition's official FeeProxy singleton on the testnet (chain 13579),
+  // wired to the upgraded MultiVault — routing (depositVia/createAtomsVia) works.
+  testnet: '0x15458457aC9009BB83137025E5D228A0783207d7',
 } as const satisfies Record<NetworkName, `0x${string}`>

@@ -28,7 +28,7 @@ A web UI for the **Intuition FeeProxy singleton** — a multi-tenant fee layer i
 ## Live deployment
 
 - **Network:** Intuition testnet (chain `13579`, RPC `https://testnet.rpc.intuition.systems`)
-- **FeeProxy singleton:** `0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792`
+- **FeeProxy singleton:** `0x15458457aC9009BB83137025E5D228A0783207d7`
 
 The app reads addresses from `packages/webapp/src/contracts/` and accepts a per-machine override via `.env.local` (below).
 
@@ -61,8 +61,8 @@ bun --filter @intuition-fee-proxy/webapp typecheck
 Point the webapp at a deployed FeeProxy via a gitignored `packages/webapp/.env.local`:
 
 ```bash
-VITE_FEEPROXY_ADDRESS=0x667cD4eC689dC06dDBCf6BE19d5F0bb2a6c7c792
-VITE_MULTIVAULT_ADDRESS=0x2Ece8D4dEdcB9918A398528f3fa4688b1d2CAB91
+VITE_FEEPROXY_ADDRESS=0x15458457aC9009BB83137025E5D228A0783207d7
+VITE_MULTIVAULT_ADDRESS=0xeC6BdEb8BCc083ceCc1E73efDd463Be4443AbD9d
 ```
 
 Without it, the app reads the per-network defaults in `src/contracts/addresses.ts` and degrades gracefully to a "not configured" state when the address is unset.
@@ -70,7 +70,7 @@ Without it, the app reads the per-network defaults in `src/contracts/addresses.t
 ## Status
 
 - ✅ Affiliate surface (register, edit fees/recipient, stats, dashboard, docs) — live against the testnet FeeProxy.
-- ⏳ **End-to-end fee routing** (`depositVia` / `createAtomsVia`) needs the MultiVault on-behalf-of surface (`isApprovedToDeposit/Create`, `createAtomsFor`). The current testnet MultiVault predates it, so routing reverts until Intuition deploys the patched MultiVault on testnet. The FeeProxy and the webapp are ready; nothing to recode.
+- ✅ **End-to-end fee routing** (`depositVia` / `createAtomsVia`) — Intuition's upgraded testnet MultiVault now ships the on-behalf-of surface (`isApprovedToDeposit/Create`, `createAtomsFor`), so routing works against the official FeeProxy.
 - The end-user deposit flow and approval revocation are a deferred side quest (one `MultiVault.approve(feeProxy, NONE)` call, already supported).
 
 ## Project context
