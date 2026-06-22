@@ -1,0 +1,7 @@
+# Serve the single-page demo on :80 (Coolify's proxy terminates TLS in front).
+# No try_files rewrite needed — there is no client-side router, just one file.
+:80 {
+	root * /srv
+	encode gzip
+	file_server
+}

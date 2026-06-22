@@ -22,8 +22,12 @@
       .primary { background: var(--brand); color: #1a0f08; padding: 13px 18px; width: 100%; margin-top: 18px; }
       .primary:disabled { opacity: .5; cursor: not-allowed; }
       .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 9px 14px; }
+      .ghost:disabled { opacity: .5; cursor: not-allowed; }
       .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
       .pill { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+      .triple { display: grid; gap: 6px; }
+      .triple .hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+      .triple .hint a { color: var(--brand); }
       .fee { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
       .fee b { color: var(--brand); }
       #log { margin-top: 18px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted);
@@ -35,8 +39,8 @@
   <body>
     <div class="card">
       <div class="kicker">Useless dApp</div>
-      <h1>Do a pointless thing 🪄</h1>
-      <p class="sub">…and route a fee to an affiliate through the Intuition FeeProxy. This is all the integration takes.</p>
+      <h1>Make a pointless statement</h1>
+      <p class="sub">Create a triple from three existing atoms, and route a fee to an affiliate through the Intuition FeeProxy. No IPFS pinning needed — triples only reference atoms that already exist. This is all the integration takes.</p>
 
       <div class="row">
         <span class="pill" id="acct">Not connected</span>
@@ -46,12 +50,23 @@
       <label>Affiliate address (the one you registered)</label>
       <input id="affiliate" value="0xE596096F4176b682E300d73963e7B04B383C1AA1" />
 
+      <div class="triple">
+        <div class="row">
+          <label style="margin:14px 0 0">Triple — three existing atom IDs (subject · predicate · object)</label>
+          <button class="ghost" id="load" style="margin-top:14px">Load 3 from chain</button>
+        </div>
+        <input id="subject" placeholder="subject atom ID (0x… 32 bytes)" />
+        <input id="predicate" placeholder="predicate atom ID (0x… 32 bytes)" />
+        <input id="object" placeholder="object atom ID (0x… 32 bytes)" />
+        <div class="hint">These must be atom IDs that already exist on Intuition testnet. Use “Load 3 from chain”, or paste IDs you find on the <a href="https://portal.intuition.systems/explore/atom" target="_blank" rel="noopener">portal explorer</a>.</div>
+      </div>
+
       <label>Amount (TRUST)</label>
       <input id="gross" value="0.5" />
 
       <div class="fee" id="fee">Fee preview: connect + fill above…</div>
 
-      <button class="primary" id="go" disabled>Create an atom via this affiliate</button>
+      <button class="primary" id="go" disabled>Create a triple via this affiliate</button>
 
       <div id="log"></div>
     </div>
@@ -59,7 +74,7 @@
     <script type="module">
       import {
         createPublicClient, createWalletClient, custom, http,
-        parseAbi, parseEther, formatEther, toHex, isAddress,
+        parseAbi, parseEther, formatEther, isAddress, isHex,
       } from 'https://esm.sh/viem@2'
 
       const FEEPROXY   = '0x15458457aC9009BB83137025E5D228A0783207d7'
@@ -74,13 +89,14 @@
       }
 
       const feeProxyAbi = parseAbi([
-        'function createAtomsVia(address affiliate, bytes[] atomDatas, uint256[] assets, (uint256 maxFeeBps, uint256 maxFixedFee) feeGuard) payable returns (bytes32[])',
+        'function createTriplesVia(address affiliate, bytes32[] subjectIds, bytes32[] predicateIds, bytes32[] objectIds, uint256[] assets, (uint256 maxFeeBps, uint256 maxFixedFee) feeGuard) payable returns (bytes32[])',
         'function previewCreationFee(address affiliate, uint256 grossAssets) view returns (uint256 fee, uint256 forwarded)',
         'function isAffiliateActive(address affiliate) view returns (bool)',
       ])
       const multiVaultAbi = parseAbi([
         'function isApprovedToCreate(address sender, address creator) view returns (bool)',
         'function approve(address sender, uint8 approvalType)',
+        'event AtomCreated(address indexed creator, bytes32 indexed termId, bytes atomData, address atomWallet)',
       ])
 
       const publicClient = createPublicClient({ chain, transport: http() })
@@ -89,12 +105,12 @@
       const $ = (id) => document.getElementById(id)
       const log = (msg, cls = '') => { $('log').insertAdjacentHTML('beforeend', `<div class="${cls}">${msg}</div>`); $('log').scrollTop = 1e9 }
       const short = (a) => a.slice(0, 6) + '…' + a.slice(-4)
+      const isId = (v) => isHex(v) && v.length === 66
 
       async function connect() {
         if (!window.ethereum) return log('No wallet found (install MetaMask).', 'err')
         walletClient = createWalletClient({ chain, transport: custom(window.ethereum) })
         ;[account] = await walletClient.requestAddresses()
-        // ensure correct chain
         try { await walletClient.switchChain({ id: chain.id }) }
         catch { try { await walletClient.addChain({ chain }) } catch {} }
         $('acct').textContent = short(account) + ' · Intuition testnet'
@@ -103,13 +119,37 @@
         refreshFee()
       }
 
+      // Read recent AtomCreated logs straight from the chain — no indexer — and
+      // prefill the three fields with distinct existing atom IDs. A triple over
+      // arbitrary recent atoms is meaningless on purpose (it is a useless dApp),
+      // but every component is a real, already-pinned atom, so it always works.
+      async function loadAtoms() {
+        $('load').disabled = true
+        try {
+          log('Reading recent AtomCreated events…')
+          const latest = await publicClient.getBlockNumber()
+          const fromBlock = latest > 200000n ? latest - 200000n : 0n
+          const logs = await publicClient.getLogs({
+            address: MULTIVAULT,
+            event: multiVaultAbi.find((x) => x.type === 'event' && x.name === 'AtomCreated'),
+            fromBlock, toBlock: 'latest',
+          })
+          const ids = [...new Set(logs.map((l) => l.args.termId))].slice(-3)
+          if (ids.length < 3) return log('Not enough recent atoms found — paste IDs from the portal instead.', 'err')
+          $('subject').value = ids[0]; $('predicate').value = ids[1]; $('object').value = ids[2]
+          log(`Loaded ${short(ids[0])} · ${short(ids[1])} · ${short(ids[2])}`, 'ok')
+        } catch (e) {
+          log('Could not read atoms: ' + (e.shortMessage || e.message) + ' — paste IDs from the portal instead.', 'err')
+        } finally { $('load').disabled = false }
+      }
+
       async function refreshFee() {
         const affiliate = $('affiliate').value.trim()
         if (!isAddress(affiliate)) return $('fee').textContent = 'Enter a valid affiliate address.'
         let gross; try { gross = parseEther($('gross').value.trim() || '0') } catch { return }
         try {
           const active = await publicClient.readContract({ address: FEEPROXY, abi: feeProxyAbi, functionName: 'isAffiliateActive', args: [affiliate] })
-          if (!active) return $('fee').innerHTML = '⚠️ This address is not a registered/active affiliate.'
+          if (!active) return $('fee').textContent = 'This address is not a registered/active affiliate.'
           const [fee, forwarded] = await publicClient.readContract({ address: FEEPROXY, abi: feeProxyAbi, functionName: 'previewCreationFee', args: [affiliate, gross] })
           $('fee').innerHTML = `On ${formatEther(gross)} TRUST → affiliate fee <b>${formatEther(fee)} TRUST</b>, forwarded ${formatEther(forwarded)} TRUST.`
         } catch (e) { $('fee').textContent = 'Could not read fee: ' + (e.shortMessage || e.message) }
@@ -117,35 +157,38 @@
 
       async function go() {
         const affiliate = $('affiliate').value.trim()
+        const subject = $('subject').value.trim(), predicate = $('predicate').value.trim(), object = $('object').value.trim()
         let gross; try { gross = parseEther($('gross').value.trim()) } catch { return log('Bad amount', 'err') }
         if (!isAddress(affiliate)) return log('Bad affiliate address', 'err')
+        if (![subject, predicate, object].every(isId)) return log('Each atom ID must be a 32-byte hex value (0x + 64 chars).', 'err')
         $('go').disabled = true
         try {
-          // 1) one-time MultiVault approval so the FeeProxy can create on your behalf
+          // 1) one-time MultiVault approval so the FeeProxy can create on your
+          //    behalf — CREATION approval covers both atoms and triples.
           const approved = await publicClient.readContract({ address: MULTIVAULT, abi: multiVaultAbi, functionName: 'isApprovedToCreate', args: [FEEPROXY, account] })
           if (!approved) {
             log('Approving FeeProxy for CREATION on the MultiVault…')
             const h = await walletClient.writeContract({ account, address: MULTIVAULT, abi: multiVaultAbi, functionName: 'approve', args: [FEEPROXY, 4] })
             await publicClient.waitForTransactionReceipt({ hash: h })
             log(`approved · <a href="${EXPLORER}/tx/${h}" target="_blank">tx</a>`, 'ok')
-          } else log('Already approved ✓')
+          } else log('Already approved')
 
-          // 2) route the creation through the affiliate
-          log('Routing createAtomsVia through ' + short(affiliate) + '…')
-          const data = toHex(`useless-dapp-atom-${Date.now()}`)
+          // 2) route the triple creation through the affiliate
+          log('Routing createTriplesVia through ' + short(affiliate) + '…')
           const guard = { maxFeeBps: 10000n, maxFixedFee: parseEther('1') }
           const hash = await walletClient.writeContract({
-            account, address: FEEPROXY, abi: feeProxyAbi, functionName: 'createAtomsVia',
-            args: [affiliate, [data], [gross], guard], value: gross,
+            account, address: FEEPROXY, abi: feeProxyAbi, functionName: 'createTriplesVia',
+            args: [affiliate, [subject], [predicate], [object], [gross], guard], value: gross,
           })
           await publicClient.waitForTransactionReceipt({ hash })
-          log(`🎉 done — fee routed to the affiliate · <a href="${EXPLORER}/tx/${hash}" target="_blank">tx</a>`, 'ok')
+          log(`done — triple created, fee routed to the affiliate · <a href="${EXPLORER}/tx/${hash}" target="_blank">tx</a>`, 'ok')
         } catch (e) {
           log('Failed: ' + (e.shortMessage || e.message), 'err')
         } finally { $('go').disabled = false }
       }
 
       $('connect').onclick = connect
+      $('load').onclick = loadAtoms
       $('go').onclick = go
       $('affiliate').oninput = refreshFee
       $('gross').oninput = refreshFee
