@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Useless dApp — powered by Intuition FeeProxy</title>
+    <style>
+      :root { color-scheme: dark; --brand: #F07A3F; --ink: #f5f3f0; --muted: #a8a29e; --line: #2a2724; --bg: #111110; --surface: #1a1816; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+             font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+             display: grid; place-items: center; padding: 32px; }
+      .card { width: 100%; max-width: 560px; background: var(--surface); border: 1px solid var(--line);
+              border-radius: 18px; padding: 28px; }
+      .kicker { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+      h1 { font-size: 26px; margin: 6px 0 4px; letter-spacing: -.01em; }
+      p.sub { color: var(--muted); margin: 0 0 22px; }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 14px 0 6px; }
+      input { width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--ink);
+              border-radius: 10px; padding: 10px 12px; font-family: ui-monospace, monospace; font-size: 13px; }
+      button { cursor: pointer; border: none; border-radius: 10px; font-weight: 600; font-size: 14px; }
+      .primary { background: var(--brand); color: #1a0f08; padding: 13px 18px; width: 100%; margin-top: 18px; }
+      .primary:disabled { opacity: .5; cursor: not-allowed; }
+      .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 9px 14px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .pill { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+      .fee { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+      .fee b { color: var(--brand); }
+      #log { margin-top: 18px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted);
+             white-space: pre-wrap; max-height: 220px; overflow: auto; border-top: 1px solid var(--line); padding-top: 12px; }
+      #log a { color: var(--brand); }
+      .ok { color: #7bbf6a; } .err { color: #e0696e; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="kicker">Useless dApp</div>
+      <h1>Do a pointless thing 🪄</h1>
+      <p class="sub">…and route a fee to an affiliate through the Intuition FeeProxy. This is all the integration takes.</p>
+
+      <div class="row">
+        <span class="pill" id="acct">Not connected</span>
+        <button class="ghost" id="connect">Connect wallet</button>
+      </div>
+
+      <label>Affiliate address (the one you registered)</label>
+      <input id="affiliate" value="0xE596096F4176b682E300d73963e7B04B383C1AA1" />
+
+      <label>Amount (TRUST)</label>
+      <input id="gross" value="0.5" />
+
+      <div class="fee" id="fee">Fee preview: connect + fill above…</div>
+
+      <button class="primary" id="go" disabled>Create an atom via this affiliate</button>
+
+      <div id="log"></div>
+    </div>
+
+    <script type="module">
+      import {
+        createPublicClient, createWalletClient, custom, http,
+        parseAbi, parseEther, formatEther, toHex, isAddress,
+      } from 'https://esm.sh/viem@2'
+
+      const FEEPROXY   = '0x15458457aC9009BB83137025E5D228A0783207d7'
+      const MULTIVAULT = '0xeC6BdEb8BCc083ceCc1E73efDd463Be4443AbD9d'
+      const EXPLORER   = 'https://testnet.explorer.intuition.systems'
+
+      const chain = {
+        id: 13579,
+        name: 'Intuition Testnet',
+        nativeCurrency: { name: 'TRUST', symbol: 'TRUST', decimals: 18 },
+        rpcUrls: { default: { http: ['https://testnet.rpc.intuition.systems'] } },
+      }
+
+      const feeProxyAbi = parseAbi([
+        'function createAtomsVia(address affiliate, bytes[] atomDatas, uint256[] assets, (uint256 maxFeeBps, uint256 maxFixedFee) feeGuard) payable returns (bytes32[])',
+        'function previewCreationFee(address affiliate, uint256 grossAssets) view returns (uint256 fee, uint256 forwarded)',
+        'function isAffiliateActive(address affiliate) view returns (bool)',
+      ])
+      const multiVaultAbi = parseAbi([
+        'function isApprovedToCreate(address sender, address creator) view returns (bool)',
+        'function approve(address sender, uint8 approvalType)',
+      ])
+
+      const publicClient = createPublicClient({ chain, transport: http() })
+      let walletClient, account
+
+      const $ = (id) => document.getElementById(id)
+      const log = (msg, cls = '') => { $('log').insertAdjacentHTML('beforeend', `<div class="${cls}">${msg}</div>`); $('log').scrollTop = 1e9 }
+      const short = (a) => a.slice(0, 6) + '…' + a.slice(-4)
+
+      async function connect() {
+        if (!window.ethereum) return log('No wallet found (install MetaMask).', 'err')
+        walletClient = createWalletClient({ chain, transport: custom(window.ethereum) })
+        ;[account] = await walletClient.requestAddresses()
+        // ensure correct chain
+        try { await walletClient.switchChain({ id: chain.id }) }
+        catch { try { await walletClient.addChain({ chain }) } catch {} }
+        $('acct').textContent = short(account) + ' · Intuition testnet'
+        $('go').disabled = false
+        log('Connected ' + short(account), 'ok')
+        refreshFee()
+      }
+
+      async function refreshFee() {
+        const affiliate = $('affiliate').value.trim()
+        if (!isAddress(affiliate)) return $('fee').textContent = 'Enter a valid affiliate address.'
+        let gross; try { gross = parseEther($('gross').value.trim() || '0') } catch { return }
+        try {
+          const active = await publicClient.readContract({ address: FEEPROXY, abi: feeProxyAbi, functionName: 'isAffiliateActive', args: [affiliate] })
+          if (!active) return $('fee').innerHTML = '⚠️ This address is not a registered/active affiliate.'
+          const [fee, forwarded] = await publicClient.readContract({ address: FEEPROXY, abi: feeProxyAbi, functionName: 'previewCreationFee', args: [affiliate, gross] })
+          $('fee').innerHTML = `On ${formatEther(gross)} TRUST → affiliate fee <b>${formatEther(fee)} TRUST</b>, forwarded ${formatEther(forwarded)} TRUST.`
+        } catch (e) { $('fee').textContent = 'Could not read fee: ' + (e.shortMessage || e.message) }
+      }
+
+      async function go() {
+        const affiliate = $('affiliate').value.trim()
+        let gross; try { gross = parseEther($('gross').value.trim()) } catch { return log('Bad amount', 'err') }
+        if (!isAddress(affiliate)) return log('Bad affiliate address', 'err')
+        $('go').disabled = true
+        try {
+          // 1) one-time MultiVault approval so the FeeProxy can create on your behalf
+          const approved = await publicClient.readContract({ address: MULTIVAULT, abi: multiVaultAbi, functionName: 'isApprovedToCreate', args: [FEEPROXY, account] })
+          if (!approved) {
+            log('Approving FeeProxy for CREATION on the MultiVault…')
+            const h = await walletClient.writeContract({ account, address: MULTIVAULT, abi: multiVaultAbi, functionName: 'approve', args: [FEEPROXY, 4] })
+            await publicClient.waitForTransactionReceipt({ hash: h })
+            log(`approved · <a href="${EXPLORER}/tx/${h}" target="_blank">tx</a>`, 'ok')
+          } else log('Already approved ✓')
+
+          // 2) route the creation through the affiliate
+          log('Routing createAtomsVia through ' + short(affiliate) + '…')
+          const data = toHex(`useless-dapp-atom-${Date.now()}`)
+          const guard = { maxFeeBps: 10000n, maxFixedFee: parseEther('1') }
+          const hash = await walletClient.writeContract({
+            account, address: FEEPROXY, abi: feeProxyAbi, functionName: 'createAtomsVia',
+            args: [affiliate, [data], [gross], guard], value: gross,
+          })
+          await publicClient.waitForTransactionReceipt({ hash })
+          log(`🎉 done — fee routed to the affiliate · <a href="${EXPLORER}/tx/${hash}" target="_blank">tx</a>`, 'ok')
+        } catch (e) {
+          log('Failed: ' + (e.shortMessage || e.message), 'err')
+        } finally { $('go').disabled = false }
+      }
+
+      $('connect').onclick = connect
+      $('go').onclick = go
+      $('affiliate').oninput = refreshFee
+      $('gross').oninput = refreshFee
+    </script>
+  </body>
+</html>
