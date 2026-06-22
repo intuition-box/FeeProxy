@@ -8,6 +8,7 @@ type SectionId =
   | 'quickstart'
   | 'overview'
   | 'affiliate-model'
+  | 'test-dapp'
   | 'call-flow'
   | 'approvals'
   | 'fees-caps'
@@ -23,6 +24,7 @@ const GROUPS = [
       { id: 'quickstart' as SectionId, label: 'Quickstart' },
       { id: 'overview' as SectionId, label: 'Overview' },
       { id: 'affiliate-model' as SectionId, label: 'Affiliate model' },
+      { id: 'test-dapp' as SectionId, label: 'Test dApp' },
     ],
   },
   {
@@ -213,6 +215,8 @@ function SectionContent({ id }: { id: SectionId }) {
       return <Overview />
     case 'affiliate-model':
       return <AffiliateModel />
+    case 'test-dapp':
+      return <TestDapp />
     case 'call-flow':
       return <CallFlow />
     case 'approvals':
@@ -419,6 +423,82 @@ function AffiliateModel() {
         admin can pause/unpause your affiliate; while paused, routing through
         your address reverts.
       </P>
+    </div>
+  )
+}
+
+function TestDapp() {
+  const demoUrl = import.meta.env.VITE_DEMO_URL as string | undefined
+  return (
+    <div className="space-y-5">
+      <PageHeader kicker="Get started" title="Test dApp" />
+      <P>
+        A hosted single-page demo that routes a real fee through your affiliate
+        id — so you can confirm your registration works end to end before you
+        build (or even start) your own dApp. It creates a tiny atom from a
+        plain-text label (stored on-chain, no IPFS), takes your affiliate fee,
+        and forwards the rest to the MultiVault. The routed call then shows up on
+        your dashboard.
+      </P>
+      {demoUrl ? (
+        <a
+          href={demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary inline-flex px-4 py-2"
+        >
+          Open the test dApp
+        </a>
+      ) : (
+        <Callout title="Not configured yet">
+          The hosted test dApp URL isn&apos;t set. Define{' '}
+          <Code>VITE_DEMO_URL</Code> in the webapp env (or ask the Intuition team
+          for the link) to surface the button here.
+        </Callout>
+      )}
+      <Steps>
+        {[
+          <>
+            <Link to="/register" className="text-brand underline decoration-brand/50">
+              Register
+            </Link>{' '}
+            your wallet as an affiliate on the{' '}
+            <strong className="text-ink">Intuition testnet</strong>, if you
+            haven&apos;t already.
+          </>,
+          <>
+            Copy your affiliate id from{' '}
+            <Link to="/me" className="text-brand underline decoration-brand/50">
+              My affiliate → Integration
+            </Link>{' '}
+            (it&apos;s your own wallet address).
+          </>,
+          <>
+            Open the test dApp, connect the same testnet wallet (or any wallet
+            with testnet TRUST), and paste your affiliate id into the affiliate
+            field.
+          </>,
+          <>
+            Set a small amount, then{' '}
+            <Code>Create an atom via this affiliate</Code>. The first time, you
+            approve the FeeProxy on the MultiVault (one-time{' '}
+            <Code>CREATION</Code> approval); then the routed call is signed.
+          </>,
+          <>
+            Back on{' '}
+            <Link to="/me" className="text-brand underline decoration-brand/50">
+              My affiliate → Analytics
+            </Link>
+            , watch the routed creation and the collected fee appear in your
+            activity.
+          </>,
+        ]}
+      </Steps>
+      <Callout title="What you need">
+        A wallet on Intuition testnet (chain 13579) with a little TRUST — enough
+        for gas plus the small routed amount. The fee goes to your configured fee
+        recipient; the demo never holds funds.
+      </Callout>
     </div>
   )
 }
